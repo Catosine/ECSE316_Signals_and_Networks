@@ -1,4 +1,4 @@
-from dns import resolver
+from socket import AF_INET6, SOCK_DGRAM, socket, getaddrinfo
 import argparse
 
 
@@ -30,25 +30,23 @@ def printHeader(config):
     print('Request type: {}'.format(request_type))
 
 
-def runClient(config):
-    if config.mx:
-        reply = resolver.query(config.name, 'MX')
-        for i in reply:
-            print("MX preference = {} mail exchanger {}".format(i.preference, i.exchange))
-    elif config.ns:
-        reply = resolver.query(config.name, 'NS')
-        for i in reply.response.answer:
-            for j in i.items:
-                print(j.to_text())
-    else:
-        reply = resolver.query(config.name, 'A')
-        for i in reply.response.answer:
-            for j in i.items:
-                print(j.address)
+def startClient(config):
+    udp = socket(family=AF_INET6, type=SOCK_DGRAM)
+    udp.settimeout(config.t)
+    addrTo = (config.server[1:], config.p)
+    print(getaddrinfo(config.server[1:], config.p))
 
+    #bugs with sendto
+    #udp.sendto(config.name.encode(), addrTo)
+
+    while True:
+        reply, _ = udp.recvfrom(4096).decode("utf-8")
+        print(reply)
+
+    udp.close()
 
 
 if __name__ == '__main__':
     config = parseInput()
     printHeader(config)
-    runClient(config)
+    startClient(config)
