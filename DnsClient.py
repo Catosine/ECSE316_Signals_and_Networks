@@ -7,7 +7,7 @@ def parseInput():
     parser.add_argument('-t', type=int, default=5, metavar='timeout',
                         help='(optional) timeout gives how long to wait, in seconds, before retransmitting an unanswered query')
     parser.add_argument('-r', type=int, default=3, metavar='max-retries',
-                        help='(optional) max-retries is the maximum number of times to retransmit an unanswered query before depriciation')
+                        help='(optional) max-retries is the maximum number of times to retransmit an unanswered query before termination')
     parser.add_argument('-p', type=int, default=53, metavar='port',
                         help='(optional) port is the UDP port number of the DNS server')
     parser.add_argument('-mx', action='store_true', help='(optional) send a mail server query')
@@ -32,9 +32,13 @@ def printHeader(config):
 
 def startClient(config):
     sock = socket(family=AF_INET6, type=SOCK_DGRAM)
+    sock.settimeout(config.t)
     sock.connect((config.name, config.p))
     print("Connect to server")
-
+    sock.send("GET / HTTP/1.1\r\nHost: {}\r\n\r\n".format(config.name).encode())
+    print("Msg sent successfully")
+    reply = sock.recv(4096)
+    print(reply)
     sock.close()
 
 
