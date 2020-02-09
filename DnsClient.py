@@ -1,5 +1,4 @@
-import scapy
-import socket
+from socket import AF_INET6, SOCK_DGRAM, socket, gethostbyname
 import argparse
 
 
@@ -31,10 +30,15 @@ def printHeader(config):
     print('Request type: {}'.format(request_type))
 
 
-def main():
-    config = parseInput()
-    printHeader(config)
+def startClient(config):
+    sock = socket(family=AF_INET6, type=SOCK_DGRAM)
+    sock.connect((config.name, config.p))
+    print("Connect to server")
+
+    sock.close()
 
 
 if __name__ == '__main__':
-    main()
+    config = parseInput()
+    printHeader(config)
+    startClient(config)
