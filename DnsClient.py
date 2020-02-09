@@ -1,4 +1,4 @@
-from socket import AF_INET6, SOCK_DGRAM, socket, gethostbyname
+from dns import resolver
 import argparse
 
 
@@ -30,19 +30,25 @@ def printHeader(config):
     print('Request type: {}'.format(request_type))
 
 
-def startClient(config):
-    sock = socket(family=AF_INET6, type=SOCK_DGRAM)
-    sock.settimeout(config.t)
-    sock.connect((config.name, config.p))
-    print("Connect to server")
-    sock.send("GET / HTTP/1.1\r\nHost: {}\r\n\r\n".format(config.name).encode())
-    print("Msg sent successfully")
-    reply = sock.recv(4096)
-    print(reply)
-    sock.close()
+def runClient(config):
+    if config.mx:
+        reply = resolver.query(config.name, 'MX')
+        for i in reply:
+            print("MX preference = {} mail exchanger {}".format(i.preference, i.exchange))
+    elif config.ns:
+        reply = resolver.query(config.name, 'NS')
+        for i in reply.response.answer:
+            for j in i.items:
+                print(j.to_text())
+    else:
+        reply = resolver.query(config.name, 'A')
+        for i in reply.response.answer:
+            for j in i.items:
+                print(j.address)
+
 
 
 if __name__ == '__main__':
     config = parseInput()
     printHeader(config)
-    startClient(config)
+    runClient(config)
