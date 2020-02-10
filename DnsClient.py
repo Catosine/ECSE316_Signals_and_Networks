@@ -34,13 +34,8 @@ def printHeader(config):
 def startClient(config):
     udp = socket(family=AF_INET, type=SOCK_DGRAM)
     udp.settimeout(config.t)
-    ip=config.server[1:]
-    port=config.p
-    message = "AA AA 01 00 00 01 00 00 00 00 00 00 07 65 78 61 6d 70 6c 65 03 63 6f 6d 00 00 01 00 01"
-
-    udp.sendto(parseMsg(message), (ip, port))
-
-
+    message = construct_msg(config.name)
+    udp.sendto(parseMsg(message), (config.server[1:], config.p))
     reply, _ = udp.recvfrom(4096)
     print_reply(reply)
 
@@ -58,6 +53,33 @@ def format_hex(hex):
     octets = [hex[i:i+2] for i in range(0, len(hex), 2)]
     pairs = [" ".join(octets[i:i+2]) for i in range(0, len(octets), 2)]
     return "\n".join(pairs)
+
+def construct_msg(domain_name):
+    output="AA AA 01 00 00 01 00 00 00 00 00 00"
+    domain_name=domain_name.split(".")
+    name=domain_name[0]
+    size=str(hex(len(name))).split("x")[1]
+    if len(size)==1:
+        size = "0"+size
+    output+=" "+size
+    for char in name:
+        output+=" "+char_hex_lookup[char]
+    name=domain_name[1]
+    size=str(hex(len(name))).split("x")[1]
+    if len(size)==1:
+        size = "0"+size
+    output+=" "+size
+    for char in name:
+        output+=" "+char_hex_lookup[char]
+    output+=" 00 00 01 00 01"
+    return output
+
+char_hex_lookup = {
+    'a': "61", 'b': "62", 'c': "63", 'd': "64", 'e': "65", 'f': "66", 'g': "67", 'h': "68",
+    'i': "69", 'j': "6A", 'k': "6B", 'l': "6C", 'm': "6D", 'n': "6E", 'o': "6F", 'p': "70",
+    'q': "71", 'r': "72", 's': "73", 't': "74", 'u': "75", 'v': "76", 'w': "77", 'x': "78",
+    'y': "79", 'z': "7A"
+}
 
 if __name__ == '__main__':
     config = parseInput()
