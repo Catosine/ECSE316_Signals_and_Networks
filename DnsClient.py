@@ -11,11 +11,13 @@ def parseInput():
                         help='(optional) max-retries is the maximum number of times to retransmit an unanswered query before termination')
     parser.add_argument('-p', type=int, default=53, metavar='port',
                         help='(optional) port is the UDP port number of the DNS server')
-    parser.add_argument('-mx', action='store_true', help='(optional) send a mail server query')
-    parser.add_argument('-ns', action='store_true', help='(optional) send a name server query')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-mx', default= False, action='store_true', help='(optional) send a mail server query')
+    group.add_argument('-ns', default= False, action='store_true', help='(optional) send a name server query')
     parser.add_argument('server', type=str, metavar='@server',
                         help='IPv4 address of a server in the format of @a.b.c.d')
     parser.add_argument('name', type=str, metavar='name', help='domain name to query for')
+    parser.print_help()
     return parser.parse_args()
 
 
