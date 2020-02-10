@@ -1,4 +1,5 @@
-from dns import resolver
+from socket import AF_INET, SOCK_DGRAM, socket, getaddrinfo
+import binascii
 import argparse
 
 
@@ -30,25 +31,35 @@ def printHeader(config):
     print('Request type: {}'.format(request_type))
 
 
-def runClient(config):
-    if config.mx:
-        reply = resolver.query(config.name, 'MX')
-        for i in reply:
-            print("MX preference = {} mail exchanger {}".format(i.preference, i.exchange))
-    elif config.ns:
-        reply = resolver.query(config.name, 'NS')
-        for i in reply.response.answer:
-            for j in i.items:
-                print(j.to_text())
-    else:
-        reply = resolver.query(config.name, 'A')
-        for i in reply.response.answer:
-            for j in i.items:
-                print(j.address)
+def startClient(config):
+    udp = socket(family=AF_INET, type=SOCK_DGRAM)
+    udp.settimeout(config.t)
+    ip=config.server[1:]
+    port=config.p
+    message = "AA AA 01 00 00 01 00 00 00 00 00 00 07 65 78 61 6d 70 6c 65 03 63 6f 6d 00 00 01 00 01"
+
+    udp.sendto(parseMsg(message), (ip, port))
 
 
+    reply, _ = udp.recvfrom(4096)
+    print_reply(reply)
+
+    udp.close()
+
+def parseMsg(msg):
+    msg = msg.replace(" ", "").replace("\n", "")
+    return binascii.unhexlify(msg)
+
+def print_reply(reply):
+    reply = binascii.hexlify(reply).decode("utf-8")
+    print(format_hex(reply))
+
+def format_hex(hex):
+    octets = [hex[i:i+2] for i in range(0, len(hex), 2)]
+    pairs = [" ".join(octets[i:i+2]) for i in range(0, len(octets), 2)]
+    return "\n".join(pairs)
 
 if __name__ == '__main__':
     config = parseInput()
     printHeader(config)
-    runClient(config)
+    startClient(config)
