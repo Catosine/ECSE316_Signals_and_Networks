@@ -1,4 +1,5 @@
-from socket import AF_INET6, SOCK_DGRAM, socket, getaddrinfo
+from socket import AF_INET, SOCK_DGRAM, socket, getaddrinfo
+import binascii
 import argparse
 
 
@@ -31,20 +32,32 @@ def printHeader(config):
 
 
 def startClient(config):
-    udp = socket(family=AF_INET6, type=SOCK_DGRAM)
+    udp = socket(family=AF_INET, type=SOCK_DGRAM)
     udp.settimeout(config.t)
-    addrTo = (config.server[1:], config.p)
-    print(getaddrinfo(config.server[1:], config.p))
+    ip=config.server[1:]
+    port=config.p
+    message = "AA AA 01 00 00 01 00 00 00 00 00 00 07 65 78 61 6d 70 6c 65 03 63 6f 6d 00 00 01 00 01"
 
-    #bugs with sendto
-    #udp.sendto(config.name.encode(), addrTo)
+    udp.sendto(parseMsg(message), (ip, port))
 
-    while True:
-        reply, _ = udp.recvfrom(4096).decode("utf-8")
-        print(reply)
+
+    reply, _ = udp.recvfrom(4096)
+    print_reply(reply)
 
     udp.close()
 
+def parseMsg(msg):
+    msg = msg.replace(" ", "").replace("\n", "")
+    return binascii.unhexlify(msg)
+
+def print_reply(reply):
+    reply = binascii.hexlify(reply).decode("utf-8")
+    print(format_hex(reply))
+
+def format_hex(hex):
+    octets = [hex[i:i+2] for i in range(0, len(hex), 2)]
+    pairs = [" ".join(octets[i:i+2]) for i in range(0, len(octets), 2)]
+    return "\n".join(pairs)
 
 if __name__ == '__main__':
     config = parseInput()
