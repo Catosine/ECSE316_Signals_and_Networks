@@ -36,51 +36,65 @@ def printHeader(config):
 def startClient(config):
     udp = socket(family=AF_INET, type=SOCK_DGRAM)
     udp.settimeout(config.t)
-    message = construct_msg(config.name)
+    message = constructMsg(config.name.lower())
     udp.sendto(parseMsg(message), (config.server[1:], config.p))
     reply, _ = udp.recvfrom(4096)
-    print_reply(reply)
+    reply = parseReply(reply)
+    ip = readIP(reply)
+    print(ip)
 
     udp.close()
+
 
 def parseMsg(msg):
     msg = msg.replace(" ", "").replace("\n", "")
     return binascii.unhexlify(msg)
 
-def print_reply(reply):
+
+def parseReply(reply):
     reply = binascii.hexlify(reply).decode("utf-8")
-    print(format_hex(reply))
+    return formatHex(reply)
 
-def format_hex(hex):
-    octets = [hex[i:i+2] for i in range(0, len(hex), 2)]
-    pairs = [" ".join(octets[i:i+2]) for i in range(0, len(octets), 2)]
-    return "\n".join(pairs)
 
-def construct_msg(domain_name):
-    output="AA AA 01 00 00 01 00 00 00 00 00 00"
-    domain_name=domain_name.split(".")
-    name=domain_name[0]
-    size=str(hex(len(name))).split("x")[1]
-    if len(size)==1:
-        size = "0"+size
-    output+=" "+size
-    for char in name:
-        output+=" "+char_hex_lookup[char]
-    name=domain_name[1]
-    size=str(hex(len(name))).split("x")[1]
-    if len(size)==1:
-        size = "0"+size
-    output+=" "+size
-    for char in name:
-        output+=" "+char_hex_lookup[char]
-    output+=" 00 00 01 00 01"
+def readIP(reply):
+    reply = reply.split()[-4:]
+    output = ""
+    for item in reply:
+        temp = 16*hex_dex_lookup[item[0]] + hex_dex_lookup[item[1]]
+        output += str(temp)+"."
+    return output[:-1]
+
+def formatHex(hex):
+    octets = [hex[i:i + 2] for i in range(0, len(hex), 2)]
+    pairs = [" ".join(octets[i:i + 2]) for i in range(0, len(octets), 2)]
+    return " ".join(pairs)
+
+
+def constructMsg(domain_name):
+    output = "AA AA 01 00 00 01 00 00 00 00 00 00"
+    domain_name = domain_name.split(".")
+    for name in domain_name:
+        size = str(hex(len(name))).split("x")[1]
+        if len(size) == 1:
+            size = "0" + size
+        output += " " + size
+        for char in name:
+            output += " " + char_hex_lookup[char]
+    output += " 00 00 01 00 01"
     return output
+
 
 char_hex_lookup = {
     'a': "61", 'b': "62", 'c': "63", 'd': "64", 'e': "65", 'f': "66", 'g': "67", 'h': "68",
     'i': "69", 'j': "6A", 'k': "6B", 'l': "6C", 'm': "6D", 'n': "6E", 'o': "6F", 'p': "70",
     'q': "71", 'r': "72", 's': "73", 't': "74", 'u': "75", 'v': "76", 'w': "77", 'x': "78",
-    'y': "79", 'z': "7A"
+    'y': "79", 'z': "7A", '0': "30", '1': "31", '2': "32", '3': "33", '4': "34",
+    '5': "35", '6': "36", '7': "37", '8': "38", '9': "39"
+}
+
+hex_dex_lookup = {
+    '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+    'a': 10, 'b': 11, 'c': 12, 'd': 13, 'e': 14, 'f': 15
 }
 
 if __name__ == '__main__':
