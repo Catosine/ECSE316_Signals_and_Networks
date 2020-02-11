@@ -42,6 +42,8 @@ def startClient(config):
     reply = parseReply(reply)
     ip = readIP(reply)
     print(ip)
+    print(reply)
+    decode_header(reply)
 
     udp.close()
 
@@ -69,6 +71,12 @@ def formatHex(hex):
     pairs = [" ".join(octets[i:i + 2]) for i in range(0, len(octets), 2)]
     return " ".join(pairs)
 
+def transInt(hex,digit):
+    res = 0
+    for i in range(digit):
+        res += hex_dex_lookup[hex[digit-1-i]]*(16**i)
+    return res
+
 
 def constructMsg(domain_name,config):
     output = "AA AA 01 00 00 01 00 00 00 00 00 00"
@@ -88,6 +96,41 @@ def constructMsg(domain_name,config):
     else:
         output += " 00 01 00 01"
     return output
+
+def decode_header(reply):
+    reply = reply.split()
+    id = reply[0]+reply[1]
+    print('id(hex) = {}'.format(id))
+    rcode = int(reply[3][1])
+    print('rcode(int) = {}'.format(rcode))
+    if rcode == 0:
+        print('No error condition')
+    else:
+        print('Sth is wrong')
+        return
+
+    qd_num = transInt(reply[4]+reply[5],4)
+    print('number of questions: {}'.format(qd_num))
+    an_num = transInt(reply[6]+reply[7],4)
+    print('number of answers: {}'.format(an_num))
+    ns_num = transInt(reply[8]+reply[9],4)
+    print('number of authorities: {}'.format(ns_num))
+    ar_num = transInt(reply[10]+reply[11],4)
+    print('number of additionals: {}'.format(ar_num))
+    ptr = 12
+    for i in range(qd_num):
+        ptr = readsection(reply,ptr)
+    for i in range(an_num):
+        ptr = readsection(reply,ptr)
+    for i in range(ns_num):
+        ptr = readsection(reply,ptr)
+    for i in range(ar_num):
+        ptr = readsection(reply,ptr)
+
+def readsection(reply,ptr):
+    return 0
+
+
 
 
 char_hex_lookup = {
