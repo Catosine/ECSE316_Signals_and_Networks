@@ -40,8 +40,8 @@ def startClient(config):
     udp.sendto(parseMsg(message), (config.server[1:], config.p))
     reply, _ = udp.recvfrom(4096)
     reply = parseReply(reply)
-    ip = readIP(reply)
-    print(ip)
+    ip = readIP(reply,-4)
+    print('Last 4 digit ip: {}'.format(ip))
     print(reply)
     decode_header(reply)
 
@@ -57,13 +57,15 @@ def parseReply(reply):
     reply = binascii.hexlify(reply).decode("utf-8")
     return formatHex(reply)
 
+def transChar(reply):
+    return [binascii.unhexlify(i[2:]).decode('utf-16') for i in reply.split()]
 
-def readIP(reply):
-    reply = reply.split()[-4:]
+
+def readIP(reply,ptr):
+    reply = reply.split()[ptr:]
     output = ""
     for item in reply:
-        temp = 16*hex_dex_lookup[item[0]] + hex_dex_lookup[item[1]]
-        output += str(temp)+"."
+        output += str(transInt(item,2))+"."
     return output[:-1]
 
 def formatHex(hex):
@@ -119,21 +121,43 @@ def decode_header(reply):
     print('number of additionals: {}'.format(ar_num))
     ptr = 12
     for i in range(qd_num):
-        ptr = readsection(reply,ptr)
+        ptr = readquestion(reply,ptr)
     for i in range(an_num):
-        ptr = readsection(reply,ptr)
+        ptr = readsection(reply,ptr,'Answer')
     for i in range(ns_num):
-        ptr = readsection(reply,ptr)
+        ptr = readsection(reply,ptr,'Authority')
     for i in range(ar_num):
-        ptr = readsection(reply,ptr)
+        ptr = readsection(reply,ptr,'Addition')
 
-def readsection(reply,ptr):
-    return 0
+def readquestion(reply,ptr):
+    print('start reading question section')
+    res = ''
+    while(True):
+        num = (int)(reply[ptr])
+        if(num==0):
+            print('Qname: {}'.format(res[:-1]))
+            ptr += 1
+            break
+        for i in range(num):
+            res += str(binascii.unhexlify(reply[ptr+i+1]))[2]
+        res +='.'
+        ptr += num+1
+    print('Qtype: {}'.format(res[:-1]))
+    return ptr
 
-
+def readsection(reply,ptr,section):
+    return ptr
 
 
 char_hex_lookup = {
+    'a': "61", 'b': "62", 'c': "63", 'd': "64", 'e': "65", 'f': "66", 'g': "67", 'h': "68",
+    'i': "69", 'j': "6A", 'k': "6B", 'l': "6C", 'm': "6D", 'n': "6E", 'o': "6F", 'p': "70",
+    'q': "71", 'r': "72", 's': "73", 't': "74", 'u': "75", 'v': "76", 'w': "77", 'x': "78",
+    'y': "79", 'z': "7A", '0': "30", '1': "31", '2': "32", '3': "33", '4': "34",
+    '5': "35", '6': "36", '7': "37", '8': "38", '9': "39"
+}
+
+hex_char_lookup = {
     'a': "61", 'b': "62", 'c': "63", 'd': "64", 'e': "65", 'f': "66", 'g': "67", 'h': "68",
     'i': "69", 'j': "6A", 'k': "6B", 'l': "6C", 'm': "6D", 'n': "6E", 'o': "6F", 'p': "70",
     'q': "71", 'r': "72", 's': "73", 't': "74", 'u': "75", 'v': "76", 'w': "77", 'x': "78",
