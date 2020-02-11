@@ -80,7 +80,13 @@ def constructMsg(domain_name):
         output += " " + size
         for char in name:
             output += " " + char_hex_lookup[char]
-    output += " 00 00 01 00 01"
+    output += " 00"
+    if      (request_type == 'NS'):
+        output += " 00 02 00 01"
+    else if (request_type == "MX"):
+        output += " 00 0f 00 01"
+    else:
+        output += " 00 01 00 01"
     return output
 
 
