@@ -53,15 +53,19 @@ def startClient(config):
     end = time.time()
     print("Response received after {} seconds ({} retries)".format(end-start, i))
     reply = parseReply(reply)
+
     ### Interpret the reply should start here ###
 
-    ip = readIP(reply)
-    print(ip)
+
+    ip = readIP(reply,-4)
+    print('Last 4 digit ip: {}'.format(ip))
+
     print(reply)
     decode_header(reply)
 
-    udp.close()
+    ### end up here ###
 
+    udp.close()
 
 def parseMsg(msg):
     msg = msg.replace(" ", "").replace("\n", "")
@@ -72,13 +76,15 @@ def parseReply(reply):
     reply = binascii.hexlify(reply).decode("utf-8")
     return formatHex(reply)
 
+def transChar(reply):
+    return [binascii.unhexlify(i[2:]).decode('utf-16') for i in reply.split()]
 
-def readIP(reply):
-    reply = reply.split()[-4:]
+
+def readIP(reply,ptr):
+    reply = reply.split()[ptr:]
     output = ""
     for item in reply:
-        temp = 16*hex_dex_lookup[item[0]] + hex_dex_lookup[item[1]]
-        output += str(temp)+"."
+        output += str(transInt(item,2))+"."
     return output[:-1]
 
 def formatHex(hex):
@@ -91,7 +97,6 @@ def transInt(hex,digit):
     for i in range(digit):
         res += hex_dex_lookup[hex[digit-1-i]]*(16**i)
     return res
-
 
 def constructMsg(domain_name,config):
     output = "AA AA 01 00 00 01 00 00 00 00 00 00"
@@ -134,18 +139,37 @@ def decode_header(reply):
     print('number of additionals: {}'.format(ar_num))
     ptr = 12
     for i in range(qd_num):
-        ptr = readsection(reply,ptr)
+        ptr = readquestion(reply,ptr,i+1)
     for i in range(an_num):
-        ptr = readsection(reply,ptr)
+        ptr = readsection(reply,ptr,'Answer',i+1)
     for i in range(ns_num):
-        ptr = readsection(reply,ptr)
+        ptr = readsection(reply,ptr,'Authority',i+1)
     for i in range(ar_num):
-        ptr = readsection(reply,ptr)
+        ptr = readsection(reply,ptr,'Addition',i+1)
 
-def readsection(reply,ptr):
-    return 0
+def readquestion(reply,ptr,num):
+    print('start reading question section {}'.format(num))
+    res = ''
+    while(True):
+        num = (int)(reply[ptr])
+        if(num==0):
+            print('Qname: {}'.format(res[:-1]))
+            ptr += 1
+            break
+        for i in range(num):
+            res += str(binascii.unhexlify(reply[ptr+i+1]))[2]
+        res +='.'
+        ptr += num+1
+    print('Qtype: {}'.format(reply[ptr]+reply[ptr+1]))
+    print('Qclass: {}'.format(reply[ptr+2]+reply[ptr+3]))
+    ptr += 4
+    print('Reading question section done')
+    return ptr
 
-
+def readsection(reply,ptr,section,num):
+    print('start reading {} section {}'.format(section,num))
+    print('Reading {} section done'.format(section))
+    return ptr
 
 
 char_hex_lookup = {
