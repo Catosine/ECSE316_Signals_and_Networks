@@ -136,16 +136,16 @@ def decode_header(reply):
     print('number of additionals: {}'.format(ar_num))
     ptr = 12
     for i in range(qd_num):
-        ptr = readquestion(reply,ptr)
+        ptr = readquestion(reply,ptr,i+1)
     for i in range(an_num):
-        ptr = readsection(reply,ptr,'Answer')
+        ptr = readsection(reply,ptr,'Answer',i+1)
     for i in range(ns_num):
-        ptr = readsection(reply,ptr,'Authority')
+        ptr = readsection(reply,ptr,'Authority',i+1)
     for i in range(ar_num):
-        ptr = readsection(reply,ptr,'Addition')
+        ptr = readsection(reply,ptr,'Addition',i+1)
 
-def readquestion(reply,ptr):
-    print('start reading question section')
+def readquestion(reply,ptr,num):
+    print('start reading question section {}'.format(num))
     res = ''
     while(True):
         num = (int)(reply[ptr])
@@ -163,8 +163,8 @@ def readquestion(reply,ptr):
     print('Reading question section done')
     return ptr
 
-def readsection(reply,ptr,section):
-    print('start reading {} section'.format(section))
+def readsection(reply,ptr,section,num):
+    print('start reading {} section {}'.format(section,num))
     print('Reading {} section done'.format(section))
     return ptr
 
