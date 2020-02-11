@@ -12,8 +12,8 @@ def parseInput():
     parser.add_argument('-p', type=int, default=53, metavar='port',
                         help='(optional) port is the UDP port number of the DNS server')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-mx', default= False, action='store_true', help='(optional) send a mail server query')
-    group.add_argument('-ns', default= False, action='store_true', help='(optional) send a name server query')
+    group.add_argument('-mx', default=False, action='store_true', help='(optional) send a mail server query')
+    group.add_argument('-ns', default=False, action='store_true', help='(optional) send a name server query')
     parser.add_argument('server', type=str, metavar='@server',
                         help='IPv4 address of a server in the format of @a.b.c.d')
     parser.add_argument('name', type=str, metavar='name', help='domain name to query for')
@@ -37,8 +37,16 @@ def startClient(config):
     udp = socket(family=AF_INET, type=SOCK_DGRAM)
     udp.settimeout(config.t)
     message = constructMsg(config.name.lower(),config)
-    udp.sendto(parseMsg(message), (config.server[1:], config.p))
-    reply, _ = udp.recvfrom(4096)
+    for i in range(config.r):
+        try:
+            udp.sendto(parseMsg(message), (config.server[1:], config.p))
+            reply, _ = udp.recvfrom(4096)
+        except:
+            print("Trial {} timeout".format(i))
+            if i >= config.r - 1:
+                print("ERROR\tMaximum number of retries {} exceeded".format(config.r))
+                exit(0)
+
     reply = parseReply(reply)
     ip = readIP(reply)
     print(ip)
@@ -76,7 +84,6 @@ def transInt(hex,digit):
     for i in range(digit):
         res += hex_dex_lookup[hex[digit-1-i]]*(16**i)
     return res
-
 
 def constructMsg(domain_name,config):
     output = "AA AA 01 00 00 01 00 00 00 00 00 00"
