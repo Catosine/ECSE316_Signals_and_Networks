@@ -85,7 +85,6 @@ def transInt(hex,digit):
         res += hex_dex_lookup[hex[digit-1-i]]*(16**i)
     return res
 
-
 def constructMsg(domain_name,config):
     output = "AA AA 01 00 00 01 00 00 00 00 00 00"
     domain_name = domain_name.split(".")
