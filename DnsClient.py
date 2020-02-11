@@ -55,13 +55,12 @@ def startClient(config):
     reply = parseReply(reply)
 
     ### Interpret the reply should start here ###
-
-
     ip = readIP(reply,-4)
     print('Last 4 digit ip: {}'.format(ip))
 
+
     print(reply)
-    decode_header(reply)
+    decodeReply(reply,config)
 
     ### end up here ###
 
@@ -117,7 +116,7 @@ def constructMsg(domain_name,config):
         output += " 00 01 00 01"
     return output
 
-def decode_header(reply):
+def decodeReply(reply,config):
     reply = reply.split()
     id = reply[0]+reply[1]
     print('id(hex) = {}'.format(id))
@@ -141,11 +140,12 @@ def decode_header(reply):
     for i in range(qd_num):
         ptr = readquestion(reply,ptr,i+1)
     for i in range(an_num):
-        ptr = readsection(reply,ptr,'Answer',i+1)
+        ptr = readsection(reply,ptr,'Answer',i+1,config)
     for i in range(ns_num):
-        ptr = readsection(reply,ptr,'Authority',i+1)
+        ptr = readsection(reply,ptr,'Authority',i+1,config)
     for i in range(ar_num):
-        ptr = readsection(reply,ptr,'Addition',i+1)
+        ptr = readsection(reply,ptr,'Addition',i+1,config)
+
 
 def readquestion(reply,ptr,num):
     print('start reading question section {}'.format(num))
@@ -166,8 +166,14 @@ def readquestion(reply,ptr,num):
     print('Reading question section done')
     return ptr
 
-def readsection(reply,ptr,section,num):
+def readsection(reply,ptr,section,num,config):
     print('start reading {} section {}'.format(section,num))
+    if (config.mx):
+        print('decode mx')
+    elif config.ns:
+        print('decode ns')
+    else:
+        print('decode A')
     print('Reading {} section done'.format(section))
     return ptr
 
