@@ -55,12 +55,12 @@ def startClient(config):
     reply = parseReply(reply)
 
     ### Interpret the reply should start here ###
-    ip = readIP(reply,-4)
-    print('Last 4 digit ip: {}'.format(ip))
-
-
-    print(reply)
     decodeReply(reply,config)
+    #ip = readIP(reply,-4)
+    #print('Last 4 digit ip: {}'.format(ip))
+
+
+    #print(reply)
 
     ### end up here ###
 
@@ -118,10 +118,10 @@ def constructMsg(domain_name,config):
 
 def decodeReply(reply,config):
     reply = reply.split()
-    id = reply[0]+reply[1]
-    print('id(hex) = {}'.format(id))
+    #id = reply[0]+reply[1]
+    #print('id(hex) = {}'.format(id))
     rcode = int(reply[3][1])
-    print('rcode(int) = {}'.format(rcode))
+    #print('rcode(int) = {}'.format(rcode))
     if rcode == 0:
         print('No error condition')
     else:
@@ -129,18 +129,19 @@ def decodeReply(reply,config):
         return
 
     qd_num = transInt(reply[4]+reply[5],4)
-    print('number of questions: {}'.format(qd_num))
+    #print('number of questions: {}'.format(qd_num))
     an_num = transInt(reply[6]+reply[7],4)
-    print('number of answers: {}'.format(an_num))
+    #print('number of answers: {}'.format(an_num))
+    print("***Answer Section ({} records)***".format(an_num))
     ns_num = transInt(reply[8]+reply[9],4)
-    print('number of authorities: {}'.format(ns_num))
+    #print('number of authorities: {}'.format(ns_num))
     ar_num = transInt(reply[10]+reply[11],4)
-    print('number of additionals: {}'.format(ar_num))
+    #print('number of additionals: {}'.format(ar_num))
     ptr = 12
     for i in range(qd_num):
         ptr = readquestion(reply,ptr,i+1)
     for i in range(an_num):
-        ptr = readsection(reply,ptr,'Answer',i+1,config)
+        ptr = readsection(reply,ptr,'Answer', i+1, config)
     for i in range(ns_num):
         ptr = readsection(reply,ptr,'Authority',i+1,config)
     for i in range(ar_num):
@@ -173,7 +174,10 @@ def readsection(reply,ptr,section,num,config):
     elif config.ns:
         print('decode ns')
     else:
-        print('decode A')
+        ip = "t.e.s.t"
+        second_can_cache = "1"
+        auth = "auth"
+        print("IP\t{}\t{}\t{}".format(ip, second_can_cache, auth))
     print('Reading {} section done'.format(section))
     return ptr
 
