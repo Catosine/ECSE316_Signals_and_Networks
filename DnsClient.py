@@ -60,7 +60,7 @@ def startClient(config):
     #print('Last 4 digit ip: {}'.format(ip))
 
 
-    #print(reply)
+    print(reply)
 
     ### end up here ###
 
@@ -80,7 +80,8 @@ def transChar(reply):
 
 
 def readIP(reply,ptr):
-    reply = reply.split()[ptr:]
+    if (type(reply) != list):
+        reply = reply.split()[ptr:]
     output = ""
     for item in reply:
         output += str(transInt(item,2))+"."
@@ -169,18 +170,54 @@ def readquestion(reply,ptr,num):
 
 def readsection(reply,ptr,section,num,config):
     print('start reading {} section {}'.format(section,num))
+
+    res,ptr = decodeName(reply,ptr)
+
+    print('Name: {}'.format(res))
+    print('Type: {}'.format(reply[ptr]+reply[ptr+1]))
+    print('Class: {}'.format(reply[ptr+2]+reply[ptr+3]))
+    print('TTL: {}'.format(reply[ptr+4]+reply[ptr+5]+reply[ptr+6]+reply[ptr+7]))
+    ptr += 8
+    rdlength = transInt(reply[ptr]+reply[ptr+1],4)
+    print("RDLength: {}".format(rdlength))
+    ptr += 2
+    IP = readIP(reply,ptr)
+    print("IP: {}".format(IP))
+
+
+
     if (config.mx):
         print('decode mx')
     elif config.ns:
         print('decode ns')
     else:
-        ip = "t.e.s.t"
         second_can_cache = "1"
         auth = "auth"
-        print("IP\t{}\t{}\t{}".format(ip, second_can_cache, auth))
+        print("IP\t{}\t{}\t{}".format(IP, second_can_cache, auth))
     print('Reading {} section done'.format(section))
     return ptr
 
+def decodeName(reply,ptr):
+    res = ''
+    while(True):
+        if (reply[ptr][0]=='c'):
+            redi= reply[ptr][1]+reply[ptr+1]
+            #print('Find {}, redirecting'.format(redi))
+            redi = transInt(redi,3)
+            res,_ = decodeName(reply,redi)
+            ptr += 2
+            break
+        num = (int)(reply[ptr])
+        if(num==0):
+            res = res[:-1]
+            #print('Name: {}'.format(res))
+            ptr += 1
+            break
+        for i in range(num):
+            res += str(binascii.unhexlify(reply[ptr+i+1]))[2]
+        res +='.'
+        ptr += num+1
+    return res,ptr
 
 char_hex_lookup = {
     'a': "61", 'b': "62", 'c': "63", 'd': "64", 'e': "65", 'f': "66", 'g': "67", 'h': "68",
