@@ -157,22 +157,19 @@ def readquestion(reply,ptr):
             res += str(binascii.unhexlify(reply[ptr+i+1]))[2]
         res +='.'
         ptr += num+1
-    print('Qtype: {}'.format(res[:-1]))
+    print('Qtype: {}'.format(reply[ptr]+reply[ptr+1]))
+    print('Qclass: {}'.format(reply[ptr+2]+reply[ptr+3]))
+    ptr += 4
+    print('Reading question section done')
     return ptr
 
 def readsection(reply,ptr,section):
+    print('start reading {} section'.format(section))
+    print('Reading {} section done'.format(section))
     return ptr
 
 
 char_hex_lookup = {
-    'a': "61", 'b': "62", 'c': "63", 'd': "64", 'e': "65", 'f': "66", 'g': "67", 'h': "68",
-    'i': "69", 'j': "6A", 'k': "6B", 'l': "6C", 'm': "6D", 'n': "6E", 'o': "6F", 'p': "70",
-    'q': "71", 'r': "72", 's': "73", 't': "74", 'u': "75", 'v': "76", 'w': "77", 'x': "78",
-    'y': "79", 'z': "7A", '0': "30", '1': "31", '2': "32", '3': "33", '4': "34",
-    '5': "35", '6': "36", '7': "37", '8': "38", '9': "39"
-}
-
-hex_char_lookup = {
     'a': "61", 'b': "62", 'c': "63", 'd': "64", 'e': "65", 'f': "66", 'g': "67", 'h': "68",
     'i': "69", 'j': "6A", 'k': "6B", 'l': "6C", 'm': "6D", 'n': "6E", 'o': "6F", 'p': "70",
     'q': "71", 'r': "72", 's': "73", 't': "74", 'u': "75", 'v': "76", 'w': "77", 'x': "78",
