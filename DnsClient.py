@@ -1,6 +1,7 @@
 from socket import AF_INET, SOCK_DGRAM, socket, getaddrinfo
 import binascii
 import argparse
+import time
 
 
 def parseInput():
@@ -37,17 +38,23 @@ def startClient(config):
     udp = socket(family=AF_INET, type=SOCK_DGRAM)
     udp.settimeout(config.t)
     message = constructMsg(config.name.lower(),config)
+    start = time.time()
     for i in range(config.r):
         try:
             udp.sendto(parseMsg(message), (config.server[1:], config.p))
             reply, _ = udp.recvfrom(4096)
+            if reply is not None:
+                break
         except:
             print("Trial {} timeout".format(i))
             if i >= config.r - 1:
                 print("ERROR\tMaximum number of retries {} exceeded".format(config.r))
                 exit(0)
-
+    end = time.time()
+    print("Response received after {} seconds ({} retries)".format(end-start, i))
     reply = parseReply(reply)
+    ### Interpret the reply should start here ###
+
     ip = readIP(reply)
     print(ip)
     print(reply)
