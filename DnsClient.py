@@ -36,7 +36,7 @@ def printHeader(config):
 def startClient(config):
     udp = socket(family=AF_INET, type=SOCK_DGRAM)
     udp.settimeout(config.t)
-    message = constructMsg(config.name.lower())
+    message = constructMsg(config.name.lower(),config)
     udp.sendto(parseMsg(message), (config.server[1:], config.p))
     reply, _ = udp.recvfrom(4096)
     reply = parseReply(reply)
@@ -70,7 +70,7 @@ def formatHex(hex):
     return " ".join(pairs)
 
 
-def constructMsg(domain_name):
+def constructMsg(domain_name,config):
     output = "AA AA 01 00 00 01 00 00 00 00 00 00"
     domain_name = domain_name.split(".")
     for name in domain_name:
@@ -81,9 +81,9 @@ def constructMsg(domain_name):
         for char in name:
             output += " " + char_hex_lookup[char]
     output += " 00"
-    if      (request_type == 'NS'):
+    if   config.ns:
         output += " 00 02 00 01"
-    else if (request_type == "MX"):
+    elif config.mx:
         output += " 00 0f 00 01"
     else:
         output += " 00 01 00 01"
