@@ -53,16 +53,18 @@ def startClient(config):
     end = time.time()
     print("Response received after {} seconds ({} retries)".format(end-start, i))
     reply = parseReply(reply)
-    
+
     ### Interpret the reply should start here ###
     ip = readIP(reply,-4)
     print('Last 4 digit ip: {}'.format(ip))
 
+
     print(reply)
     decodeReply(reply,config)
 
-    udp.close()
+    ### end up here ###
 
+    udp.close()
 
 def parseMsg(msg):
     msg = msg.replace(" ", "").replace("\n", "")
@@ -143,6 +145,7 @@ def decodeReply(reply,config):
         ptr = readsection(reply,ptr,'Authority',i+1,config)
     for i in range(ar_num):
         ptr = readsection(reply,ptr,'Addition',i+1,config)
+
 
 def readquestion(reply,ptr,num):
     print('start reading question section {}'.format(num))
