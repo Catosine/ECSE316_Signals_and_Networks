@@ -18,7 +18,6 @@ def parseInput():
     parser.add_argument('server', type=str, metavar='@server',
                         help='IPv4 address of a server in the format of @a.b.c.d')
     parser.add_argument('name', type=str, metavar='name', help='domain name to query for')
-    parser.print_help()
     return parser.parse_args()
 
 
@@ -46,7 +45,7 @@ def startClient(config):
             if reply is not None:
                 break
         except:
-            print("Trial {} timeout".format(i))
+            print("Trial {} timeout".format(i+1))
             if i >= config.r - 1:
                 print("ERROR\tMaximum number of retries {} exceeded".format(config.r))
                 exit(0)
@@ -79,9 +78,11 @@ def transChar(reply):
     return [binascii.unhexlify(i[2:]).decode('utf-16') for i in reply.split()]
 
 
-def readIP(reply,ptr):
+def readIP(reply,ptr,length):
     if (type(reply) != list):
-        reply = reply.split()[ptr:]
+        reply = reply.split()[ptr:ptr+length]
+    else:
+        reply = reply[ptr:ptr+length]
     output = ""
     for item in reply:
         output += str(transInt(item,2))+"."
@@ -130,23 +131,25 @@ def decodeReply(reply,config):
         return
 
     qd_num = transInt(reply[4]+reply[5],4)
-    #print('number of questions: {}'.format(qd_num))
+    print('number of questions: {}'.format(qd_num))
     an_num = transInt(reply[6]+reply[7],4)
-    #print('number of answers: {}'.format(an_num))
-    print("***Answer Section ({} records)***".format(an_num))
+    print('number of answers: {}'.format(an_num))
     ns_num = transInt(reply[8]+reply[9],4)
-    #print('number of authorities: {}'.format(ns_num))
+    print('number of authorities: {}'.format(ns_num))
     ar_num = transInt(reply[10]+reply[11],4)
-    #print('number of additionals: {}'.format(ar_num))
+    print('number of additionals: {}'.format(ar_num))
+    
     ptr = 12
     for i in range(qd_num):
         ptr = readquestion(reply,ptr,i+1)
+    if (an_num>0):
+        print("***Answer Section ({} records)***".format(an_num))
     for i in range(an_num):
         ptr = readsection(reply,ptr,'Answer', i+1, config)
-    for i in range(ns_num):
-        ptr = readsection(reply,ptr,'Authority',i+1,config)
-    for i in range(ar_num):
-        ptr = readsection(reply,ptr,'Addition',i+1,config)
+    # for i in range(ns_num):
+    #     ptr = readsection(reply,ptr,'Authority',i+1,config)
+    # for i in range(ar_num):
+    #     ptr = readsection(reply,ptr,'Addition',i+1,config)
 
 
 def readquestion(reply,ptr,num):
@@ -174,18 +177,25 @@ def readsection(reply,ptr,section,num,config):
     res,ptr = decodeName(reply,ptr)
 
     print('Name: {}'.format(res))
-    print('Type: {}'.format(reply[ptr]+reply[ptr+1]))
+    rtype = reply[ptr]+reply[ptr+1]
+    print('Type: {}'.format(rtype))
     print('Class: {}'.format(reply[ptr+2]+reply[ptr+3]))
-    print('TTL: {}'.format(reply[ptr+4]+reply[ptr+5]+reply[ptr+6]+reply[ptr+7]))
+    print('TTL: {}'.format(transInt(reply[ptr+4]+reply[ptr+5]+reply[ptr+6]+reply[ptr+7],8)))
     ptr += 8
     rdlength = transInt(reply[ptr]+reply[ptr+1],4)
     print("RDLength: {}".format(rdlength))
     ptr += 2
-    IP = readIP(reply,ptr)
-    print("IP: {}".format(IP))
-
-
-
+    IP  = '-1'
+    if (rtype == '0001'):
+        IP = readIP(reply,ptr,rdlength)
+        print("IP: {}".format(IP))
+    elif rtype == '0002':
+        pass
+    elif rtype == '0005':
+        pass
+    elif rtype == '000f':
+        pass
+    ptr += rdlength
     if (config.mx):
         print('decode mx')
     elif config.ns:
@@ -199,6 +209,7 @@ def readsection(reply,ptr,section,num,config):
 
 def decodeName(reply,ptr):
     res = ''
+    
     while(True):
         if (reply[ptr][0]=='c'):
             redi= reply[ptr][1]+reply[ptr+1]
@@ -218,6 +229,10 @@ def decodeName(reply,ptr):
         res +='.'
         ptr += num+1
     return res,ptr
+
+
+def decodeRdata(reply, ptr, length):
+    reply = reply
 
 char_hex_lookup = {
     'a': "61", 'b': "62", 'c': "63", 'd': "64", 'e': "65", 'f': "66", 'g': "67", 'h': "68",
