@@ -53,7 +53,7 @@ class DNSClient:
         udp.settimeout(self.config.t)
         message = self.__constructMsg__()
         start = time.time()
-        if self.config.server[1] != "@" or len(self.config.server.split()) != 4:
+        if self.config.server[0] != "@" or len(self.config.server.split(".")) != 4:
             print("ERROR\tInvalid @server IP address. Example: @8.8.8.8")
             exit(0)
         for i in range(self.config.r):
@@ -70,6 +70,8 @@ class DNSClient:
         end = time.time()
         print("Response received after {} seconds ({} retries)".format(end-start, i))
         reply = self.__parseReply__(reply)
+        print(reply)
+        print(self.__hexToStr__("7a 2d 70 34 32 2d 69 6e 73 74 61 67 72 61 6d".split()))
         self.__decodeReply__(reply)
 
         udp.close()
@@ -167,6 +169,21 @@ class DNSClient:
                     ptr += len_prefix
                 print("NS\t{}\t{}\t{}".format(prefix, ttl, auth))
                 ptr += 2
+            elif type == "00 05":
+                #cname
+                cname = ""
+                count = 0
+                while count < len:
+                    cname_len = self.__hexToInt__(reply[ptr:ptr+1])
+                    if cname_len == 192:
+                        cname += self.__readShotcut__(reply, reply[ptr:ptr+2])
+                        break
+                    count += cname_len + 1
+                    ptr+=1
+                    cname += self.__hexToStr__(reply[ptr:ptr+cname_len]) + "."
+                    ptr+=cname_len
+                #exit(0)
+                print("CNAME\t{}\t{}\t{}".format(cname[:-1], ttl, auth))
             elif type == "00 01":
                 # a type
                 ip = self.__hexToIP__(reply[ptr:ptr+len])
