@@ -70,8 +70,6 @@ class DNSClient:
         end = time.time()
         print("Response received after {} seconds ({} retries)".format(end-start, i))
         reply = self.__parseReply__(reply)
-        print(reply)
-        print(self.__hexToStr__("7a 2d 70 34 32 2d 69 6e 73 74 61 67 72 61 6d".split()))
         self.__decodeReply__(reply)
 
         udp.close()
