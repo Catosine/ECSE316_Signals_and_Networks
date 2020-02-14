@@ -17,7 +17,6 @@ def parseInput():
     parser.add_argument('server', type=str, metavar='@server',
                         help='IPv4 address of a server in the format of @a.b.c.d')
     parser.add_argument('name', type=str, metavar='name', help='domain name to query for')
-    parser.print_help()
     return parser.parse_args()
 
 class DNSClient:
@@ -225,6 +224,7 @@ class DNSClient:
         for item in arr:
             ip += str(self.hex_dex_lookup[item[1]] + self.hex_dex_lookup[item[0]]*16) + "."
         return ip[:-1]
+
 
 if __name__ == '__main__':
     config = parseInput()
