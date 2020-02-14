@@ -1,8 +1,7 @@
-from socket import AF_INET, SOCK_DGRAM, socket, getaddrinfo
+from socket import AF_INET, SOCK_DGRAM, socket
 import binascii
 import argparse
 import time
-
 
 def parseInput():
     parser = argparse.ArgumentParser("dns client")
@@ -20,234 +19,214 @@ def parseInput():
     parser.add_argument('name', type=str, metavar='name', help='domain name to query for')
     return parser.parse_args()
 
+class DNSClient:
+    def __init__(self, config):
+        self.config = config
+        self.char_hex_lookup = {
+            'a': "61", 'b': "62", 'c': "63", 'd': "64", 'e': "65", 'f': "66", 'g': "67", 'h': "68",
+            'i': "69", 'j': "6A", 'k': "6B", 'l': "6C", 'm': "6D", 'n': "6E", 'o': "6F", 'p': "70",
+            'q': "71", 'r': "72", 's': "73", 't': "74", 'u': "75", 'v': "76", 'w': "77", 'x': "78",
+            'y': "79", 'z': "7A", '0': "30", '1': "31", '2': "32", '3': "33", '4': "34",
+            '5': "35", '6': "36", '7': "37", '8': "38", '9': "39"
+        }
 
-def printHeader(config):
-    print('DnsClient sending request for {}'.format(config.name))
-    print('Server: {}'.format(config.server[1:]))
-    if config.mx:
-        request_type = 'MX'
-    elif config.ns:
-        request_type = 'NS'
-    else:
-        request_type = 'A'
-    print('Request type: {}'.format(request_type))
+        self.hex_dex_lookup = {
+            '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+            'a': 10, 'b': 11, 'c': 12, 'd': 13, 'e': 14, 'f': 15
+        }
+
+    def __printHeader__(self):
+        print('DnsClient sending request for {}'.format(self.config.name))
+        print('Server: {}'.format(self.config.server[1:]))
+        if self.config.mx:
+            request_type = 'MX'
+        elif self.config.ns:
+            request_type = 'NS'
+        else:
+            request_type = 'A'
+        print('Request type: {}'.format(request_type))
 
 
-def startClient(config):
-    udp = socket(family=AF_INET, type=SOCK_DGRAM)
-    udp.settimeout(config.t)
-    message = constructMsg(config.name.lower(),config)
-    start = time.time()
-    for i in range(config.r):
-        try:
-            udp.sendto(parseMsg(message), (config.server[1:], config.p))
-            reply, _ = udp.recvfrom(4096)
-            if reply is not None:
+    def sendRequest(self):
+        self.__printHeader__()
+        udp = socket(family=AF_INET, type=SOCK_DGRAM)
+        udp.settimeout(self.config.t)
+        message = self.__constructMsg__()
+        start = time.time()
+        for i in range(self.config.r):
+            try:
+                udp.sendto(self.__parseMsg__(message), (self.config.server[1:], self.config.p))
+                reply, _ = udp.recvfrom(4096)
+                if reply is not None:
+                    break
+            except:
+                print("Trial {} timeout".format(i))
+                if i >= self.config.r - 1:
+                    print("ERROR\tMaximum number of retries {} exceeded".format(self.config.r))
+                    exit(0)
+        end = time.time()
+        print("Response received after {} seconds ({} retries)".format(end-start, i))
+        reply = self.__parseReply__(reply)
+        self.__decodeReply__(reply)
+
+        udp.close()
+
+    def __parseMsg__(self, msg):
+        msg = msg.replace(" ", "").replace("\n", "")
+        return binascii.unhexlify(msg)
+
+
+    def __parseReply__(self, reply):
+        reply = binascii.hexlify(reply).decode("utf-8")
+        return self.__formatHex__(reply)
+
+    def __formatHex__(self, hex):
+        octets = [hex[i:i + 2] for i in range(0, len(hex), 2)]
+        pairs = [" ".join(octets[i:i + 2]) for i in range(0, len(octets), 2)]
+        return " ".join(pairs)
+
+    def __constructMsg__(self):
+        output = "AA AA 01 00 00 01 00 00 00 00 00 00"
+        domain_name = self.config.name.lower().split(".")
+        for name in domain_name:
+            size = str(hex(len(name))).split("x")[1]
+            if len(size) == 1:
+                size = "0" + size
+            output += " " + size
+            for char in name:
+                output += " " + self.char_hex_lookup[char]
+        output += " 00"
+        if self.config.ns:
+            output += " 00 02 00 01"
+        elif self.config.mx:
+            output += " 00 0f 00 01"
+        else:
+            output += " 00 01 00 01"
+        return output
+
+    def __readShotcut__(self, reply, hex):
+        decode = ""
+        rest_idx = self.__hexToInt__(hex) & 16383
+        while True:
+            if reply[rest_idx] == 'c0':
+                return decode+self.__readShotcut__(reply, reply[rest_idx:rest_idx+2])
+            rest_len = self.__hexToInt__(reply[rest_idx:rest_idx+1])
+            if rest_len == 0:
                 break
-        except:
-            print("Trial {} timeout".format(i+1))
-            if i >= config.r - 1:
-                print("ERROR\tMaximum number of retries {} exceeded".format(config.r))
-                exit(0)
-    end = time.time()
-    print("Response received after {} seconds ({} retries)".format(end-start, i))
-    reply = parseReply(reply)
+            rest_idx += 1
+            decode += self.__hexToStr__(reply[rest_idx:rest_idx+rest_len]) + "."
+            rest_idx += rest_len
+        return decode
 
-    ### Interpret the reply should start here ###
-    decodeReply(reply,config)
-    #ip = readIP(reply,-4)
-    #print('Last 4 digit ip: {}'.format(ip))
+    def __readBlock__(self, reply, ptr, num, auth):
+        for i in range(num):
+            while reply[ptr]!="00":
+                ptr+=1
+            type = " ".join(reply[ptr:ptr+2])
+            ptr += 4
+            ttl = self.__hexToInt__(reply[ptr:ptr+4])
+            ptr += 4
+            len = self.__hexToInt__(reply[ptr:ptr+2])
+            ptr += 2
+            ptr_cp = ptr
+            if type == "00 0f":
+                # mx
+                pref = self.__hexToInt__(reply[ptr:ptr+2])
+                ptr += 2
+                alias = ""
+                while True:
+                    word_len = self.__hexToInt__(reply[ptr:ptr+1])
+                    if word_len == 0:
+                        break
+                    if word_len == 192:
+                        # shortcut detected
+                        alias += self.__readShotcut__(reply, reply[ptr:ptr+2])
+                        break
 
+                    ptr += 1
+                    alias += self.__hexToStr__(reply[ptr:ptr+word_len])+"."
+                    ptr += word_len
+                alias = alias[:-1]
+                print("MX\t{}\t{}\t{}\t{}".format(alias, pref, ttl, auth))
+            elif type == "00 02":
+                # ns
+                prefix = ""
+                while True:
+                    if reply[ptr] == "c0":
+                        prefix += self.__readShotcut__(reply, reply[ptr:ptr+2])[:-1]
+                        break
+                    len_prefix = self.__hexToInt__(reply[ptr:ptr+1])
+                    if len_prefix == 0:
+                        prefix = prefix[:-1]
+                        break
+                    ptr+=1
+                    prefix += self.__hexToStr__(reply[ptr:ptr+len_prefix])+"."
+                    ptr += len_prefix
+                print("NS\t{}\t{}\t{}".format(prefix, ttl, auth))
+                ptr += 2
+            elif type == "00 01":
+                # a type
+                ip = self.__hexToIP__(reply[ptr:ptr+len])
+                ptr+=len
+                print("IP\t{}\t{}\t{}".format(ip, ttl, auth))
+            else:
+                print("ERROR\tSection {} is Unsupported by our decoder. QType: {}".format(i, type))
+                ptr+=len
 
-    print(reply)
+            ptr = ptr_cp + len
 
-    ### end up here ###
+        return ptr
 
-    udp.close()
+    def __decodeReply__(self, reply):
+        reply = reply.split()
+        num_of_ans = self.__hexToInt__(reply[6:8])
+        print("***Answer Section ({} records)***".format(num_of_ans))
+        auth = "auth" if self.__hexToInt__(reply[2:4]) & 1024 else "nonauth"
+        num_of_add = self.__hexToInt__(reply[10:12])
+        ptr = 12
+        while True:
+            increment = self.__hexToInt__(reply[ptr])
+            ptr += increment+1
+            if increment == 0:
+                break
 
-def parseMsg(msg):
-    msg = msg.replace(" ", "").replace("\n", "")
-    return binascii.unhexlify(msg)
+        ptr += 6
 
+        ptr = self.__readBlock__(reply, ptr, num_of_ans, auth)
 
-def parseReply(reply):
-    reply = binascii.hexlify(reply).decode("utf-8")
-    return formatHex(reply)
+        if num_of_add <= 0:
+            return
 
-def transChar(reply):
-    return [binascii.unhexlify(i[2:]).decode('utf-16') for i in reply.split()]
+        print("***Additional Section ({} records)***".format(num_of_add))
+        while reply[ptr]!="00":
+            ptr+=1
+        ptr = self.__readBlock__(reply, ptr, num_of_add, auth)
 
-
-def readIP(reply,ptr,length):
-    if (type(reply) != list):
-        reply = reply.split()[ptr:ptr+length]
-    else:
-        reply = reply[ptr:ptr+length]
-    output = ""
-    for item in reply:
-        output += str(transInt(item,2))+"."
-    return output[:-1]
-
-def formatHex(hex):
-    octets = [hex[i:i + 2] for i in range(0, len(hex), 2)]
-    pairs = [" ".join(octets[i:i + 2]) for i in range(0, len(octets), 2)]
-    return " ".join(pairs)
-
-def transInt(hex,digit):
-    res = 0
-    for i in range(digit):
-        res += hex_dex_lookup[hex[digit-1-i]]*(16**i)
-    return res
-
-def constructMsg(domain_name,config):
-    output = "AA AA 01 00 00 01 00 00 00 00 00 00"
-    domain_name = domain_name.split(".")
-    for name in domain_name:
-        size = str(hex(len(name))).split("x")[1]
-        if len(size) == 1:
-            size = "0" + size
-        output += " " + size
-        for char in name:
-            output += " " + char_hex_lookup[char]
-    output += " 00"
-    if   config.ns:
-        output += " 00 02 00 01"
-    elif config.mx:
-        output += " 00 0f 00 01"
-    else:
-        output += " 00 01 00 01"
-    return output
-
-def decodeReply(reply,config):
-    reply = reply.split()
-    #id = reply[0]+reply[1]
-    #print('id(hex) = {}'.format(id))
-    rcode = int(reply[3][1])
-    #print('rcode(int) = {}'.format(rcode))
-    if rcode == 0:
-        print('No error condition')
-    else:
-        print('Sth is wrong')
         return
 
-    qd_num = transInt(reply[4]+reply[5],4)
-    print('number of questions: {}'.format(qd_num))
-    an_num = transInt(reply[6]+reply[7],4)
-    print('number of answers: {}'.format(an_num))
-    ns_num = transInt(reply[8]+reply[9],4)
-    print('number of authorities: {}'.format(ns_num))
-    ar_num = transInt(reply[10]+reply[11],4)
-    print('number of additionals: {}'.format(ar_num))
-    
-    ptr = 12
-    for i in range(qd_num):
-        ptr = readquestion(reply,ptr,i+1)
-    if (an_num>0):
-        print("***Answer Section ({} records)***".format(an_num))
-    for i in range(an_num):
-        ptr = readsection(reply,ptr,'Answer', i+1, config)
-    # for i in range(ns_num):
-    #     ptr = readsection(reply,ptr,'Authority',i+1,config)
-    # for i in range(ar_num):
-    #     ptr = readsection(reply,ptr,'Addition',i+1,config)
+    def __hexToInt__(self, arr):
+        result = 0
+        idx = 0
+        for item in arr[::-1]:
+            for c in item[::-1]:
+                result += self.hex_dex_lookup[c] * (16)**idx
+                idx+=1
+        return result
 
+    def __hexToStr__(self, arr):
+        decoded = ""
+        for item in arr:
+            decoded += chr(self.hex_dex_lookup[item[1]] + self.hex_dex_lookup[item[0]]*16)
+        return decoded
 
-def readquestion(reply,ptr,num):
-    print('start reading question section {}'.format(num))
-    res = ''
-    while(True):
-        num = (int)(reply[ptr])
-        if(num==0):
-            print('Qname: {}'.format(res[:-1]))
-            ptr += 1
-            break
-        for i in range(num):
-            res += str(binascii.unhexlify(reply[ptr+i+1]))[2]
-        res +='.'
-        ptr += num+1
-    print('Qtype: {}'.format(reply[ptr]+reply[ptr+1]))
-    print('Qclass: {}'.format(reply[ptr+2]+reply[ptr+3]))
-    ptr += 4
-    print('Reading question section done')
-    return ptr
+    def __hexToIP__(self, arr):
+        ip = ""
+        for item in arr:
+            ip += str(self.hex_dex_lookup[item[1]] + self.hex_dex_lookup[item[0]]*16) + "."
+        return ip[:-1]
 
-def readsection(reply,ptr,section,num,config):
-    print('start reading {} section {}'.format(section,num))
-
-    res,ptr = decodeName(reply,ptr)
-
-    print('Name: {}'.format(res))
-    rtype = reply[ptr]+reply[ptr+1]
-    print('Type: {}'.format(rtype))
-    print('Class: {}'.format(reply[ptr+2]+reply[ptr+3]))
-    print('TTL: {}'.format(transInt(reply[ptr+4]+reply[ptr+5]+reply[ptr+6]+reply[ptr+7],8)))
-    ptr += 8
-    rdlength = transInt(reply[ptr]+reply[ptr+1],4)
-    print("RDLength: {}".format(rdlength))
-    ptr += 2
-    IP  = '-1'
-    if (rtype == '0001'):
-        IP = readIP(reply,ptr,rdlength)
-        print("IP: {}".format(IP))
-    elif rtype == '0002':
-        pass
-    elif rtype == '0005':
-        pass
-    elif rtype == '000f':
-        pass
-    ptr += rdlength
-    if (config.mx):
-        print('decode mx')
-    elif config.ns:
-        print('decode ns')
-    else:
-        second_can_cache = "1"
-        auth = "auth"
-        print("IP\t{}\t{}\t{}".format(IP, second_can_cache, auth))
-    print('Reading {} section done'.format(section))
-    return ptr
-
-def decodeName(reply,ptr):
-    res = ''
-    
-    while(True):
-        if (reply[ptr][0]=='c'):
-            redi= reply[ptr][1]+reply[ptr+1]
-            #print('Find {}, redirecting'.format(redi))
-            redi = transInt(redi,3)
-            res,_ = decodeName(reply,redi)
-            ptr += 2
-            break
-        num = (int)(reply[ptr])
-        if(num==0):
-            res = res[:-1]
-            #print('Name: {}'.format(res))
-            ptr += 1
-            break
-        for i in range(num):
-            res += str(binascii.unhexlify(reply[ptr+i+1]))[2]
-        res +='.'
-        ptr += num+1
-    return res,ptr
-
-
-def decodeRdata(reply, ptr, length):
-    reply = reply
-
-char_hex_lookup = {
-    'a': "61", 'b': "62", 'c': "63", 'd': "64", 'e': "65", 'f': "66", 'g': "67", 'h': "68",
-    'i': "69", 'j': "6A", 'k': "6B", 'l': "6C", 'm': "6D", 'n': "6E", 'o': "6F", 'p': "70",
-    'q': "71", 'r': "72", 's': "73", 't': "74", 'u': "75", 'v': "76", 'w': "77", 'x': "78",
-    'y': "79", 'z': "7A", '0': "30", '1': "31", '2': "32", '3': "33", '4': "34",
-    '5': "35", '6': "36", '7': "37", '8': "38", '9': "39"
-}
-
-hex_dex_lookup = {
-    '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
-    'a': 10, 'b': 11, 'c': 12, 'd': 13, 'e': 14, 'f': 15
-}
 
 if __name__ == '__main__':
     config = parseInput()
-    printHeader(config)
-    startClient(config)
+    client = DNSClient(config)
+    client.sendRequest()
