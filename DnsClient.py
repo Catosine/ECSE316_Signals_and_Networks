@@ -171,7 +171,7 @@ class DNSClient:
                 ptr+=len
                 print("IP\t{}\t{}\t{}".format(ip, ttl, auth))
             else:
-                print("ERROR\tSection {} is Unsupported by our decoder. QType: {}".format(i, type))
+                print("ERROR\tUnexpected response. Section {} QType {}".format(i, type))
                 ptr+=len
 
             ptr = ptr_cp + len
@@ -181,7 +181,11 @@ class DNSClient:
     def __decodeReply__(self, reply):
         reply = reply.split()
         num_of_ans = self.__hexToInt__(reply[6:8])
-        print("***Answer Section ({} records)***".format(num_of_ans))
+        if num_of_ans > 0:
+            print("***Answer Section ({} records)***".format(num_of_ans))
+        else:
+            print("NOTFOUND")
+            return
         auth = "auth" if self.__hexToInt__(reply[2:4]) & 1024 else "nonauth"
         num_of_add = self.__hexToInt__(reply[10:12])
         ptr = 12
