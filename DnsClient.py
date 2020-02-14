@@ -4,7 +4,7 @@ import argparse
 import time
 
 def parseInput():
-    parser = argparse.ArgumentParser("dns client")
+    parser = argparse.ArgumentParser("DnsClient.py")
     parser.add_argument('-t', type=int, default=5, metavar='timeout',
                         help='(optional) timeout gives how long to wait, in seconds, before retransmitting an unanswered query')
     parser.add_argument('-r', type=int, default=3, metavar='max-retries',
@@ -54,6 +54,9 @@ class DNSClient:
         udp.settimeout(self.config.t)
         message = self.__constructMsg__()
         start = time.time()
+        if self.config.server[1] != "@" or len(self.config.server.split()) != 4:
+            print("ERROR\tInvalid @server IP address. Example: @8.8.8.8")
+            exit(0)
         for i in range(self.config.r):
             try:
                 udp.sendto(self.__parseMsg__(message), (self.config.server[1:], self.config.p))
@@ -231,6 +234,10 @@ class DNSClient:
         return ip[:-1]
 
 if __name__ == '__main__':
-    config = parseInput()
+    try:
+        config = parseInput()
+    except:
+        print("ERROR\tInvalid Input Parameters. Please type python DnsClient.py -h for helping info.")
+        exit(0)
     client = DNSClient(config)
     client.sendRequest()
