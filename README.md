@@ -13,6 +13,6 @@ This is the course project for ECSE316: Signals and Networks provided by McGill 
 > One of them will be a brute force approach that follows directly from the formula. The second one 
 > will be an implementation of the Fast Fourier Transform (FFT) which follows a divide-and-conquer
 > approach to algorithm design. In particular, the FFT we will focus on is the Cooley-Tukey FFT.
-
+>> Requirements for this assignment: [see this file]()
 ## License  
 This repo is under the MIT license.
