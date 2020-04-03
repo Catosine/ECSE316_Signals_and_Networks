@@ -4,5 +4,9 @@ This is the course project for ECSE316: Signals and Networks provided by McGill 
 ## Contributors  
 [Pengnan](https://github.com/Catosine) and [Han](https://github.com/albat3ross)  
 
+## Folders
+> [assignment1]()  
+> [assignment2]()
+
 ## License  
 This repo is under the MIT license.
