@@ -15,7 +15,7 @@ def parseInput():
     }
     parser = argparse.ArgumentParser("fft.py")
     parser.add_argument("-m", type=int, default=1, choices=[1, 2, 3, 4], help='; '.join(choice_helper.values()))
-    parser.add_argument("image", type=str, default="moonlanding.png", metavar="image.png", nargs="?",
+    parser.add_argument("image", type=str, default="../moonlanding.png", metavar="image.png", nargs="?",
                         help="(optional) filename of the image we wish to take the DFT of.")
     return parser.parse_args()
 
@@ -26,7 +26,7 @@ class FFTransformer():
         self.mode = config.m
         self.image_name = config.image
         if not osp.exists(self.image_name):
-            raise RuntimeError("INVALID image input: {}. Please type python fft.py -h for help.".format(self.image))
+            raise RuntimeError("INVALID image input: {}. Please type python fft.py -h for help.".format(self.image_name))
 
     def to_string(self):
         return "Mode: {}, Image: {}".format(self.mode, self.image_name)
@@ -47,6 +47,15 @@ class FFTransformer():
         else:
             # mode 4
             print("4")
+    def dft_naive(self,original_image):
+        pass
+
+    def dft_FFT(self,original_image):
+        pass
+
+    def rev_2ddft(self):
+        pass
+
 
 
 
