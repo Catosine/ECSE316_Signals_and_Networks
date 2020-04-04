@@ -48,7 +48,7 @@ class FFTransformer():
             # mode 4
             print("4")
     def dft_naive(self,original_image):
-        
+        pass
 
     def dft_FFT(self,original_image):
         pass
