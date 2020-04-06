@@ -43,6 +43,7 @@ class FFTransformer:
         if self.mode == 1:
             # mode 1
             plt.show()
+
         elif self.mode == 2:
             # mode 2
             plt.subplot(1,2,2)
@@ -53,6 +54,7 @@ class FFTransformer:
         elif self.mode == 3:
             # mode 3
             print("3")
+
         else:
             # mode 4
             print("4")
@@ -61,14 +63,15 @@ class FFTransformer:
         pass
 
     def dft_FFT(self, original_image):
+        # TODO: required for mode 2
+
         pass
 
     def rev_2ddft(self, fft_image):
-        row, col = fft_image.shape
-        for r in range(row):
-            temp = 0
-            for c in range(col):
-                temp = fft_image[r, c]
+        pass
+
+    def validity_check(self, original_image):
+        # check if
         pass
 
 
