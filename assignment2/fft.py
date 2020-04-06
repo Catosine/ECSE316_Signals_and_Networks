@@ -43,9 +43,9 @@ class FFTransformer:
         if self.mode == 1:
             # mode 1
             plt.subplot(1, 2, 2)
-            ft_image = self.dft_fast2d(original_image)
+            fft_image = abs(self.__fft_shift__(self.dft_fast2d(original_image)))
             plt.title('fft')
-            plt.imshow(ft_image, norm=LogNorm)
+            plt.imshow(fft_image, norm=LogNorm())
             plt.show()
 
         elif self.mode == 2:
@@ -249,6 +249,19 @@ class FFTransformer:
         """
         r_row, r_col = np.power([2,2],np.floor(np.log2(img.shape))).astype(int)
         return img[:r_row, :r_col]
+
+    def __fft_shift__(self, img):
+        row, col = img.shape
+        row/=2
+        col/=2
+        return np.concatenate(
+            (np.concatenate(
+                (img[int(row):, int(col):], img[int(row):, :int(col)]),
+                axis=1),
+             np.concatenate(
+                 (img[:int(row), int(col):], img[:int(row), :int(col)]),
+                 axis=1)),
+            axis=0)
         
 
 
