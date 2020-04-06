@@ -71,16 +71,13 @@ class FFTransformer:
                 temp = fft_image[r, c]
         pass
     
-    def rowdft_naive(arr):
-        N = arr.size
-        #e^(2ipi/N)
-        factor = np.exp(2j*np.pi/N) 
-        # array of e^(n*2ipi/N)
-        factor_arr = np.array([(factor**index) for index in range(N)])
-        # array of sum a*e^(kn2ipi/N)
-        res = np.array([sum(arr*(factor_arr**k)) for k in range(N)])
-        
-        return res
+    def rowDFT_naive(arr):
+        arr = np.asarray(arr, dtype=float)
+        N = arr.shape[0]
+        n = np.arange(N)
+        k = n.reshape((N, 1))
+        M = np.exp(-2j * np.pi * k * n / N)
+        return np.dot(M, arr)
 
 
 if __name__ == '__main__':
