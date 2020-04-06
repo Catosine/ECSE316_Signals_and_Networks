@@ -36,7 +36,7 @@ class FFTransformer:
         original_image = cv2.imread(self.image_name, cv2.IMREAD_UNCHANGED)
 
         # display original image
-        plt.subplot(1,2,1)
+        plt.subplot(1, 2, 1)
         plt.title('origin')
         plt.imshow(original_image)
 
@@ -46,7 +46,7 @@ class FFTransformer:
 
         elif self.mode == 2:
             # mode 2
-            plt.subplot(1,2,2)
+            plt.subplot(1, 2, 2)
             plt.title('denoising')
             plt.imshow(original_image)
             plt.show()
@@ -59,31 +59,172 @@ class FFTransformer:
             # mode 4
             print("4")
 
-    def dft_naive(self, original_image):
-        pass
+    def dft_naive1d(self, signal):
 
-    def dft_FFT(self, original_image):
-        # TODO: required for mode 2
+        """
+            Naive 1D FT
 
-        pass
+            :param signal: 1D Numpy array
+            :return: signal after naive FT
+        """
 
-    def rev_2ddft(self, fft_image):
-        pass
+        length = signal.shape[0]
+        n = np.arange(length)
+        k = n.reshape((length, 1))
+        factor = np.exp(-2j * np.pi * k * n / length)
+        return np.dot(factor, signal)
 
-    def validity_check(self, original_image):
-        # check if
-        pass
-    
-    def rowdft_naive(arr):
-        N = arr.size
-        #e^(2ipi/N)
-        factor = np.exp(2j*np.pi/N) 
-        # array of e^(n*2ipi/N)
-        factor_arr = np.array([(factor**index) for index in range(N)])
-        # array of sum a*e^(kn2ipi/N)
-        res = np.array([sum(arr*(factor_arr**k)) for k in range(N)])
-        
-        return res
+    def dft_fast1d(self, signal, threshold=16):
+
+        """
+            1D Cooley-Tukey FFT
+
+            :param signal: 1D numpy array
+            :param threshold: minimum split length
+            :return: signal after FFT
+        """
+
+        length = signal.shape[0]
+        if length % 2:
+            raise RuntimeError("length of signal must be divisible by 2")
+
+        if length <= threshold:
+            # Should call naive 1D FT
+            return self.dft_naive1d(signal)
+
+        even = self.dft_fast1d(signal[0::2])
+        odd = self.dft_fast1d(signal[0::2])
+        factor = np.exp(-2j * np.pi * np.arange(length) / length)
+        return np.concatenate((even + factor[:length // 2] * odd,
+                               even + factor[length // 2:] * odd), axis=0)
+
+    def dft_naive2d(self, img):
+
+        """
+            2D naive FT
+
+            :param img: 2D numpy array
+            :return: img after naive FT
+        """
+
+        row, col = img.shape
+        output = np.empty([row, col], np.complex)
+
+        for r in range(row):
+            for c in range(col):
+                sum = 0
+                for n in range(col):
+                    for m in range(row):
+                        sum += img[m, n] * np.exp(-2j * np.pi * (float(r * m) / row + float(c * n) / col))
+                output[r, c] = sum
+
+        return output
+
+    def dft_fast2d(self, img, threshold=16):
+
+        """
+            2D Cooley-Tukey FFT
+
+            :param img: 2D numpy array
+            :param threshold: minimum split length
+            :return: img after 2D Cooley-Tukey FFT
+        """
+        row, col = img.shape
+        if col % 2:
+            raise RuntimeError("column of image must be divisible by 2")
+
+        if col <= threshold:
+            return np.array([self.dft_naive1d(img[r, :]) for r in range(row)])
+
+        even = self.dft_fast2d(img[:, ::2])
+        odd = self.dft_fast2d(img[:, 1::2])
+        factor = np.array([np.exp(-2j * np.pi * np.arange(col) / col) for r in range(row)])
+        return np.concatenate(
+            (even + np.multiply(factor[:, :col // 2], odd),
+             even + np.multiply(factor[:, col // 2:], odd)), axis=1)
+
+    def idft_naive1d(self, ft_signal):
+
+        """
+            Inverse 1D Naive FT
+
+            :param ft_signal: 1D numpy FT array
+            :return: ft_signal after inverse 1D naive FT
+        """
+
+        length = ft_signal.shape[0]
+        return ft_signal.dot(
+            np.array([[np.exp(2j * np.pi * i * j / length) for i in range(length)] for j in range(length)]))
+
+    def idft_fast1d(self, ft_signal, threshold=16):
+
+        """
+            Inverse 1D FFT
+
+            :param ft_signal: 1D numpy FT array
+            :param threshold: minimum split length
+            :return: ft_signal after inverse 1D naive FT
+        """
+
+        length = ft_signal.shape[0]
+
+        if length % 2:
+            raise RuntimeError("length of signal must be divisible by 2")
+
+        if length <= threshold:
+            return self.idft_naive1d(ft_signal)
+
+        even = self.idft_fast1d(ft_signal[::2])
+        odd = self.idft_fast1d(ft_signal[1::2])
+        factor = np.exp(2j * np.pi * np.arange(length) / length)
+        return np.concatenate((even + factor[:length // 2] * odd,
+                               even + factor[length // 2:] * odd), axis=0)
+
+    def idft_naive2d(self, ft_img):
+        # not sure if correct
+
+        """
+            Inverse 2D Naive FT
+
+            :param ft_img: 2D numpy FT array
+            :return: ft_signal after inverse 2D naive FT
+        """
+
+        row, col = ft_img.shape
+        output = np.empty([row, col], np.complex)
+
+        for r in range(row):
+            for c in range(col):
+                sum = 0
+                for n in range(col):
+                    for m in range(row):
+                        sum += ft_img[m, n] * np.exp(2j * np.pi * (float(r * m) / row + float(c * n) / col))
+                output[r, c] = sum / (row * col)
+
+        return output
+
+    def idft_fast2d(self, ft_img, threshold=16):
+        """
+            Inverse 2D Fast FT
+
+            :param ft_img: 2D numpy FT array
+            :param threshold: minimum split length
+            :return: ft_signal after inverse 2D fast FT
+        """
+
+        row, col = ft_img.shape
+
+        if col % 2:
+            raise RuntimeError("column of image must be divisible by 2")
+
+        if col <= threshold:
+            return np.array([self.idft_naive1d(ft_img[i, :]) for i in range(row)])
+
+        even = self.idft_fast2d(ft_img[:, ::2])
+        odd = self.idft_fast2d(ft_img[:, 1::2])
+        factor = np.array([np.exp(2j * np.pi * np.arange(col) / col) for i in range(row)])
+        return np.concatenate(
+            (even + np.multiply(factor[:, :col // 2], odd), even + np.multiply(factor[:, col // 2:], odd)), axis=1)
 
 
 if __name__ == '__main__':
