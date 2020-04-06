@@ -73,6 +73,17 @@ class FFTransformer:
     def validity_check(self, original_image):
         # check if
         pass
+    
+    def rowdft_naive(arr):
+        N = arr.size
+        #e^(2ipi/N)
+        factor = np.exp(2j*np.pi/N) 
+        # array of e^(n*2ipi/N)
+        factor_arr = np.array([(factor**index) for index in range(N)])
+        # array of sum a*e^(kn2ipi/N)
+        res = np.array([sum(arr*(factor_arr**k)) for k in range(N)])
+        
+        return res
 
 
 if __name__ == '__main__':
