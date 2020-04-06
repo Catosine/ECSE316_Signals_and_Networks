@@ -42,6 +42,10 @@ class FFTransformer:
 
         if self.mode == 1:
             # mode 1
+            plt.subplot(1, 2, 2)
+            ft_image = self.dft_fast2d(original_image)
+            plt.title('fft')
+            plt.imshow(ft_image, norm=LogNorm)
             plt.show()
 
         elif self.mode == 2:
@@ -120,7 +124,7 @@ class FFTransformer:
 
         return output
 
-    def dft_fast2d(self, img, threshold=16):
+    def __dft_fast2d__(self, img, threshold=16):
 
         """
             2D Cooley-Tukey FFT
@@ -131,17 +135,27 @@ class FFTransformer:
         """
         row, col = img.shape
         if col % 2:
-            raise RuntimeError("column of image must be divisible by 2")
+            raise RuntimeError("column of image must be divisible by 2. current: {}".format(col))
 
         if col <= threshold:
             return np.array([self.dft_naive1d(img[r, :]) for r in range(row)])
 
-        even = self.dft_fast2d(img[:, ::2])
-        odd = self.dft_fast2d(img[:, 1::2])
+        even = self.__dft_fast2d__(img[:, ::2])
+        odd = self.__dft_fast2d__(img[:, 1::2])
         factor = np.array([np.exp(-2j * np.pi * np.arange(col) / col) for r in range(row)])
         return np.concatenate(
             (even + np.multiply(factor[:, :col // 2], odd),
              even + np.multiply(factor[:, col // 2:], odd)), axis=1)
+
+    def dft_fast2d(self, img, threshold=16):
+        """
+            API for 2D FFT
+
+            :param img: 2D numpy array
+            :param threshold: threshold: minimum split length
+            :return: img after FFT
+        """
+        return self.__dft_fast2d__(self.__dft_fast2d__(img, threshold).T, threshold).T
 
     def idft_naive1d(self, ft_signal):
 
@@ -225,6 +239,11 @@ class FFTransformer:
         factor = np.array([np.exp(2j * np.pi * np.arange(col) / col) for i in range(row)])
         return np.concatenate(
             (even + np.multiply(factor[:, :col // 2], odd), even + np.multiply(factor[:, col // 2:], odd)), axis=1)
+
+    def validify_img(self, img):
+        r_row, r_col = np.power([2,2],np.floor(np.log2(img.shape))).astype(int)
+        return img[:r_row, :r_col]
+        
 
 
 if __name__ == '__main__':
