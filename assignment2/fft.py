@@ -1,6 +1,6 @@
 import argparse
-from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import cv2
 import numpy as np
 import os.path as osp
@@ -33,7 +33,7 @@ class FFTransformer:
         return "Mode: {}, Image: {}".format(self.mode, self.image_name)
 
     def start(self):
-        original_image = cv2.imread(self.image_name, cv2.IMREAD_UNCHANGED)
+        original_image = self.validify_img(cv2.imread(self.image_name, cv2.IMREAD_UNCHANGED))
 
         # display original image
         plt.subplot(1, 2, 1)
@@ -241,6 +241,12 @@ class FFTransformer:
             (even + np.multiply(factor[:, :col // 2], odd), even + np.multiply(factor[:, col // 2:], odd)), axis=1)
 
     def validify_img(self, img):
+        """
+            Validify image to make it has a shape with power of 2
+
+            :param img: 2D numpy array
+            :return: 2D numpy array w/ shape of power of 2
+        """
         r_row, r_col = np.power([2,2],np.floor(np.log2(img.shape))).astype(int)
         return img[:r_row, :r_col]
         
