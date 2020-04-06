@@ -71,7 +71,7 @@ class FFTransformer:
                 temp = fft_image[r, c]
         pass
     
-    def rowDFT_naive(arr):
+    def rowDFT(self,arr):
         arr = np.asarray(arr, dtype=float)
         N = arr.shape[0]
         n = np.arange(N)
@@ -79,12 +79,29 @@ class FFTransformer:
         M = np.exp(-2j * np.pi * k * n / N)
         return np.dot(M, arr)
 
+    def rowFFT(self,arr):
+        arr = np.asarray(arr, dtype=float)
+        N = arr.shape[0]
+        
+        if N % 2 > 0:
+            raise ValueError("size of x must be a power of 2")
+        elif N <= 32:  # this cutoff should be optimized
+            return self.rowDFT(arr)
+        else:
+            X_even = self.rowFFT(arr[::2])
+            X_odd = self.rowFFT(arr[1::2])
+            factor = np.exp(-2j * np.pi * np.arange(N) / N)
+            return np.concatenate([X_even + factor[:(int)(N / 2)] * X_odd,
+                                   X_even + factor[(int)(N / 2):] * X_odd])
+
+
 
 if __name__ == '__main__':
     config = parseInput()  # Throwing exception for no reason
     try:
         fft = FFTransformer(config)
         fft.start()
+        x = np.random.random(1024)
     except RuntimeError:
         raise
         exit(0)
