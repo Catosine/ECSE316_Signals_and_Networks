@@ -4,6 +4,7 @@ from matplotlib.colors import LogNorm
 import cv2
 import numpy as np
 import os.path as osp
+import time
 
 
 def parseInput():
@@ -17,6 +18,8 @@ def parseInput():
     parser.add_argument("-m", type=int, default=1, choices=[1, 2, 3, 4], help='; '.join(choice_helper.values()))
     parser.add_argument("image", type=str, default="moonlanding.png", metavar="image.png", nargs="?",
                         help="(optional) filename of the image we wish to take the DFT of.")
+    parser.add_argument("--denoising_percentile", type=float, default=0.2, help="(optional) denoising percentile")
+    parser.add_argument("--debug", action="store_false", help="run under debug mode")
     return parser.parse_args()
 
 
@@ -25,6 +28,8 @@ class FFTransformer:
     def __init__(self, config):
         self.mode = config.m
         self.image_name = config.image
+        self.denosing_percentile = config.denoising_percentile
+        self.debug = config.debug
         if not osp.exists(self.image_name):
             raise RuntimeError(
                 "INVALID image input: {}. Please type python fft.py -h for help.".format(self.image_name))
@@ -33,35 +38,116 @@ class FFTransformer:
         return "Mode: {}, Image: {}".format(self.mode, self.image_name)
 
     def start(self):
-        original_image = self.validify_img(cv2.imread(self.image_name, cv2.IMREAD_UNCHANGED))
+        original_image = self.validify_img(cv2.imread(self.image_name, cv2.IMREAD_GRAYSCALE))
 
         # display original image
         plt.subplot(1, 2, 1)
-        plt.title('origin')
+        plt.title("original")
         plt.imshow(original_image)
 
         if self.mode == 1:
             # mode 1
+            fft_image = self.dft_fast2d(original_image)
+
             plt.subplot(1, 2, 2)
-            fft_image = abs(self.__fft_shift__(self.dft_fast2d(original_image)))
-            plt.title('fft')
-            plt.imshow(fft_image, norm=LogNorm())
+            plt.title('self.fft')
+            plt.imshow(np.abs(fft_image), norm=LogNorm())
             plt.show()
+
 
         elif self.mode == 2:
             # mode 2
+            denoised_img = self.denoise(original_image, percentile=self.denosing_percentile)
+
             plt.subplot(1, 2, 2)
-            plt.title('denoising')
-            plt.imshow(original_image)
+            plt.title('denoising: percentile = {}'.format(self.denosing_percentile))
+            plt.imshow(np.abs(denoised_img), norm=LogNorm())
             plt.show()
 
         elif self.mode == 3:
             # mode 3
-            print("3")
+            print("mode 3 compressing")
 
         else:
+            plt.close()
+
             # mode 4
-            print("4")
+            e = 7 if self.debug else 14
+            trial = 2 if self.debug else 10
+            naive_time = list()
+            fast_time = list()
+
+            for p in range(5,e):
+                size = 2**p
+                print("##########################")
+                print("Test data size: ({}, {})".format(size, size))
+                print("##########################")
+                temp_n_time = list()
+                temp_f_time = list()
+                for t in range(trial):
+                    print("Trial: {}".format(t))
+
+                    test_data = np.random.rand(size, size).astype(np.float32)
+
+                    naive_start = time.time()
+                    naive = self.dft_naive2d(test_data)
+                    n_time = time.time() - naive_start
+                    print("Naive time: {}".format(n_time))
+                    temp_n_time.append(n_time)
+
+                    fast_start = time.time()
+                    fast = self.dft_fast2d(test_data)
+                    f_time = time.time() - fast_start
+                    print("Fast time: {}".format(f_time))
+                    temp_f_time.append(f_time)
+
+                naive_time.append(temp_n_time)
+                fast_time.append(temp_f_time)
+
+            naive_time = np.array(naive_time)
+            fast_time = np.array(fast_time)
+
+            naive_mean = naive_time.mean(axis=1)
+            naive_std = naive_time.std(axis=1)
+
+            fast_mean = fast_time.mean(axis=1)
+            fast_std = fast_time.std(axis=1)
+
+            power = np.arange(5, e)
+
+            plt.errorbar(power, naive_mean, yerr=naive_std, label="naive")
+            plt.errorbar(power, fast_mean, yerr=fast_std, label="fast")
+            plt.xlabel("size of test data (power of 2)")
+            plt.ylabel("runtime (second)")
+            plt.xticks(power)
+            plt.title("Runtime for navie FT against fast ft")
+            plt.legend(loc='best')
+            plt.show()
+
+
+    def denoise(self, image, percentile=0.25, threshold=16):
+
+        """
+            Denoising API using FFT
+
+            :param image: 2D numpy array
+            :param percentile: percentile to keep
+            :param threshold: threshold for FFT
+            :return: imgae after denoising
+        """
+
+        fft_img = self.__fft_shift__(self.dft_fast2d(image, threshold=threshold))
+
+        row, col = fft_img.shape
+        for r in range(row):
+            for c in range(col):
+                if r < row * (0.5-percentile/2) or r > row * (0.5+percentile/2):
+                    fft_img[r,c] = 0
+                if c < col * (0.5-percentile/2) or c > col * (0.5+percentile/2):
+                    fft_img[r,c] = 0
+
+        return self.idft_fast2d(fft_img)
+
 
     def dft_naive1d(self, signal):
 
@@ -75,8 +161,8 @@ class FFTransformer:
         length = signal.shape[0]
         n = np.arange(length)
         k = n.reshape((length, 1))
-        factor = np.exp(-2j * np.pi * k * n / length)
-        return np.dot(factor, signal)
+        factor = np.exp(-2j * np.pi * k * n / length).astype(np.complex64)
+        return np.dot(factor, signal).astype(np.complex64)
 
     def dft_fast1d(self, signal, threshold=16):
 
@@ -97,8 +183,8 @@ class FFTransformer:
             return self.dft_naive1d(signal)
 
         even = self.dft_fast1d(signal[0::2])
-        odd = self.dft_fast1d(signal[0::2])
-        factor = np.exp(-2j * np.pi * np.arange(length) / length)
+        odd = self.dft_fast1d(signal[1::2])
+        factor = np.exp(-2j * np.pi * np.arange(length) / length).astype(np.complex64)
         return np.concatenate((even + factor[:length // 2] * odd,
                                even + factor[length // 2:] * odd), axis=0)
 
@@ -112,7 +198,7 @@ class FFTransformer:
         """
 
         row, col = img.shape
-        output = np.empty([row, col], np.complex)
+        output = np.empty([row, col], np.complex64)
 
         for r in range(row):
             for c in range(col):
@@ -122,7 +208,7 @@ class FFTransformer:
                         sum += img[m, n] * np.exp(-2j * np.pi * (float(r * m) / row + float(c * n) / col))
                 output[r, c] = sum
 
-        return output
+        return output.astype(np.complex64)
 
     def __dft_fast2d__(self, img, threshold=16):
 
@@ -142,7 +228,7 @@ class FFTransformer:
 
         even = self.__dft_fast2d__(img[:, ::2])
         odd = self.__dft_fast2d__(img[:, 1::2])
-        factor = np.array([np.exp(-2j * np.pi * np.arange(col) / col) for r in range(row)])
+        factor = np.array([np.exp(-2j * np.pi * np.arange(col) / col) for r in range(row)]).astype(np.complex64)
         return np.concatenate(
             (even + np.multiply(factor[:, :col // 2], odd),
              even + np.multiply(factor[:, col // 2:], odd)), axis=1)
@@ -168,7 +254,7 @@ class FFTransformer:
 
         length = ft_signal.shape[0]
         return ft_signal.dot(
-            np.array([[np.exp(2j * np.pi * i * j / length) for i in range(length)] for j in range(length)]))
+            np.array([[np.exp(2j * np.pi * i * j / length) for i in range(length)] for j in range(length)])).astype(np.complex64)
 
     def idft_fast1d(self, ft_signal, threshold=16):
 
@@ -190,7 +276,7 @@ class FFTransformer:
 
         even = self.idft_fast1d(ft_signal[::2])
         odd = self.idft_fast1d(ft_signal[1::2])
-        factor = np.exp(2j * np.pi * np.arange(length) / length)
+        factor = np.exp(2j * np.pi * np.arange(length) / length).astype(np.complex64)
         return np.concatenate((even + factor[:length // 2] * odd,
                                even + factor[length // 2:] * odd), axis=0)
 
@@ -205,7 +291,7 @@ class FFTransformer:
         """
 
         row, col = ft_img.shape
-        output = np.empty([row, col], np.complex)
+        output = np.empty([row, col], np.complex64)
 
         for r in range(row):
             for c in range(col):
@@ -215,9 +301,9 @@ class FFTransformer:
                         sum += ft_img[m, n] * np.exp(2j * np.pi * (float(r * m) / row + float(c * n) / col))
                 output[r, c] = sum / (row * col)
 
-        return output
+        return output.astype(np.complex64)
 
-    def idft_fast2d(self, ft_img, threshold=16):
+    def __idft_fast2d__(self, ft_img, threshold=16):
         """
             Inverse 2D Fast FT
 
@@ -234,11 +320,22 @@ class FFTransformer:
         if col <= threshold:
             return np.array([self.idft_naive1d(ft_img[i, :]) for i in range(row)])
 
-        even = self.idft_fast2d(ft_img[:, ::2])
-        odd = self.idft_fast2d(ft_img[:, 1::2])
-        factor = np.array([np.exp(2j * np.pi * np.arange(col) / col) for i in range(row)])
+        even = self.__idft_fast2d__(ft_img[:, ::2])
+        odd = self.__idft_fast2d__(ft_img[:, 1::2])
+        factor = np.array([np.exp(2j * np.pi * np.arange(col) / col) for i in range(row)]).astype(np.complex64)
         return np.concatenate(
             (even + np.multiply(factor[:, :col // 2], odd), even + np.multiply(factor[:, col // 2:], odd)), axis=1)
+
+    def idft_fast2d(self, ft_img, threshold=16):
+        """
+            API For inverse 2D FFT
+
+            :param ft_img: 2D numpy array
+            :param threshold: minimum split length
+            :return: ft_signal after inverse 2D fast FT
+        """
+        row, col = ft_img.shape
+        return self.__idft_fast2d__(self.__idft_fast2d__(ft_img, threshold).T, threshold).T / row / col
 
     def validify_img(self, img):
         """
@@ -247,8 +344,8 @@ class FFTransformer:
             :param img: 2D numpy array
             :return: 2D numpy array w/ shape of power of 2
         """
-        r_row, r_col = np.power([2,2],np.floor(np.log2(img.shape))).astype(int)
-        return img[:r_row, :r_col]
+        r_row, r_col = np.power([2,2],np.ceil(np.log2(img.shape))).astype(int)
+        return cv2.resize(img, (r_col, r_row), interpolation=cv2.INTER_CUBIC)
 
     def __fft_shift__(self, img):
         row, col = img.shape
