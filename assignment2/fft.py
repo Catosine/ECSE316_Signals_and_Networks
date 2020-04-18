@@ -169,9 +169,9 @@ class FFTransformer:
         name = "assignment2/pics/compressing_{}_".format(percentile) + self.image_name.split('.')[0] + ".csv"
         np.savetxt(name, fft_img, delimiter=",")
 
-        #plt.title('compressing: percentile = {}'.format(percentile))
-        #plt.imshow(np.abs(self.idft_fast2d(fft_img)))
-        #plt.savefig("assignment2/pics/compressing_{}_".format(percentile) + self.image_name, bbox_inches='tight')
+        plt.title('compressing: percentile = {}'.format(percentile))
+        plt.imshow(np.abs(self.idft_fast2d(fft_img)))
+        plt.savefig("assignment2/pics/compressing_{}_".format(percentile) + self.image_name, bbox_inches='tight')
 
     def denoise(self, image, percentile=0.25, threshold=16, type=1, cap=0.5):
 
