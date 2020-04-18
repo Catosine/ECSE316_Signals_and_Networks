@@ -18,7 +18,8 @@ def parseInput():
     parser.add_argument("-m", type=int, default=1, choices=[1, 2, 3, 4], help='; '.join(choice_helper.values()))
     parser.add_argument("image", type=str, default="moonlanding.png", metavar="image.png", nargs="?",
                         help="(optional) filename of the image we wish to take the DFT of.")
-    parser.add_argument("--denoising_percentile", type=float, default=0.1, help="(optional) denoising percentile")
+    parser.add_argument("--denoise_ratio", type=float, default=0.1, help="(optional) denoising ratio")
+    parser.add_argument("--compress_ratio", type=float, default=0.9, help="(optional) compressing ratio")
     parser.add_argument("--debug", action="store_false", help="run under debug mode")
     return parser.parse_args()
 
@@ -28,7 +29,8 @@ class FFTransformer:
     def __init__(self, config):
         self.mode = config.m
         self.image_name = config.image
-        self.denosing_percentile = config.denoising_percentile
+        self.denosing_percentile = config.denoise_ratio
+        self.compressing_percentile = config.compress_ratio
         self.debug = config.debug
         if not osp.exists(self.image_name):
             raise RuntimeError(
@@ -41,36 +43,42 @@ class FFTransformer:
         original_image = self.validify_img(cv2.imread(self.image_name, cv2.IMREAD_GRAYSCALE))
 
         # display original image
-        plt.subplot(1, 2, 1)
         plt.title("original")
-        plt.imshow(original_image, plt.cm.gray)
+        plt.imshow(original_image)
+        plt.savefig("assignment2/pics/original_"+self.image_name)
+        plt.close()
 
         if self.mode == 1:
             # mode 1
             fft_image = self.dft_fast2d(original_image)
 
-            plt.subplot(1, 2, 2)
             plt.title('self.fft')
-            plt.imshow(fft_image.real, plt.cm.gray, norm=LogNorm())
-            plt.show()
+            plt.imshow(fft_image.real, norm=LogNorm())
+            plt.savefig("assignment2/pics/self_fft_"+self.image_name)
+            plt.close()
 
+            fft_image = np.fft.fft2(original_image)
+            plt.title('np.fft')
+            plt.imshow(fft_image.real, norm=LogNorm())
+            plt.savefig("assignment2/pics/np_fft_"+self.image_name)
 
         elif self.mode == 2:
             # mode 2
             denoised_img = self.denoise(original_image, percentile=self.denosing_percentile)
 
-            plt.subplot(1, 2, 2)
             plt.title('denoising: percentile = {}'.format(self.denosing_percentile))
-            plt.imshow(denoised_img.real, plt.cm.gray)
-            plt.show()
+            plt.imshow(denoised_img.real)
+            plt.savefig("assignment2/pics/denoising_{}_".format(self.denosing_percentile)+self.image_name)
 
         elif self.mode == 3:
             # mode 3
-            print("mode 3 compressing")
+            compressed_img = self.compress(original_image, percentile=self.compressing_percentile)
+
+            plt.title('compressing: percentile = {}'.format(self.compressing_percentile))
+            plt.imshow(compressed_img.real)
+            plt.savefig("assignment2/pics/compressing_{}_".format(self.compressing_percentile)+self.image_name)
 
         else:
-            plt.close()
-
             # mode 4
             e = 7 if self.debug else 14
             trial = 2 if self.debug else 10
@@ -90,13 +98,13 @@ class FFTransformer:
                     test_data = np.random.rand(size, size).astype(np.float32)
 
                     naive_start = time.time()
-                    naive = self.dft_naive2d(test_data)
+                    self.dft_naive2d(test_data)
                     n_time = time.time() - naive_start
                     print("Naive time: {}".format(n_time))
                     temp_n_time.append(n_time)
 
                     fast_start = time.time()
-                    fast = self.dft_fast2d(test_data)
+                    self.dft_fast2d(test_data)
                     f_time = time.time() - fast_start
                     print("Fast time: {}".format(f_time))
                     temp_f_time.append(f_time)
@@ -124,6 +132,27 @@ class FFTransformer:
             plt.legend(loc='best')
             plt.show()
 
+    def compress(self, image, percentile=0.25, threshold=16):
+
+        """
+
+            :param image: 2D numpy array
+            :param percentile: compressing ratio
+            :param threshold: threshold for FFT
+            :return: image after compressing
+        """
+
+        fft_img = self.dft_fast2d(image, threshold=threshold)
+
+        # filtering
+        row, col = fft_img.shape
+
+        for r in range(row):
+            for c in range(col):
+                if (r + c) > (row + col)*percentile:
+                    fft_img[r,c] = 0
+
+        return self.idft_fast2d(fft_img)
 
     def denoise(self, image, percentile=0.25, threshold=16):
 
