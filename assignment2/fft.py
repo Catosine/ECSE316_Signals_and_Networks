@@ -18,7 +18,7 @@ def parseInput():
     parser.add_argument("-m", type=int, default=1, choices=[1, 2, 3, 4], help='; '.join(choice_helper.values()))
     parser.add_argument("image", type=str, default="moonlanding.png", metavar="image.png", nargs="?",
                         help="(optional) filename of the image we wish to take the DFT of.")
-    parser.add_argument("--denoising_percentile", type=float, default=0.2, help="(optional) denoising percentile")
+    parser.add_argument("--denoising_percentile", type=float, default=0.1, help="(optional) denoising percentile")
     parser.add_argument("--debug", action="store_false", help="run under debug mode")
     return parser.parse_args()
 
@@ -43,7 +43,7 @@ class FFTransformer:
         # display original image
         plt.subplot(1, 2, 1)
         plt.title("original")
-        plt.imshow(original_image)
+        plt.imshow(original_image, plt.cm.gray)
 
         if self.mode == 1:
             # mode 1
@@ -51,7 +51,7 @@ class FFTransformer:
 
             plt.subplot(1, 2, 2)
             plt.title('self.fft')
-            plt.imshow(np.abs(fft_image), norm=LogNorm())
+            plt.imshow(fft_image.real, plt.cm.gray, norm=LogNorm())
             plt.show()
 
 
@@ -61,7 +61,7 @@ class FFTransformer:
 
             plt.subplot(1, 2, 2)
             plt.title('denoising: percentile = {}'.format(self.denosing_percentile))
-            plt.imshow(np.abs(denoised_img), norm=LogNorm())
+            plt.imshow(denoised_img.real, plt.cm.gray)
             plt.show()
 
         elif self.mode == 3:
@@ -136,15 +136,12 @@ class FFTransformer:
             :return: imgae after denoising
         """
 
-        fft_img = self.__fft_shift__(self.dft_fast2d(image, threshold=threshold))
+        fft_img = self.dft_fast2d(image, threshold=threshold)
 
+        # filtering
         row, col = fft_img.shape
-        for r in range(row):
-            for c in range(col):
-                if r < row * (0.5-percentile/2) or r > row * (0.5+percentile/2):
-                    fft_img[r,c] = 0
-                if c < col * (0.5-percentile/2) or c > col * (0.5+percentile/2):
-                    fft_img[r,c] = 0
+        fft_img[int(row*percentile):int(row*(1-percentile))] = 0
+        fft_img[:,int(col*percentile):int(col*(1-percentile))] = 0
 
         return self.idft_fast2d(fft_img)
 
@@ -347,18 +344,18 @@ class FFTransformer:
         r_row, r_col = np.power([2,2],np.ceil(np.log2(img.shape))).astype(int)
         return cv2.resize(img, (r_col, r_row), interpolation=cv2.INTER_CUBIC)
 
-    def __fft_shift__(self, img):
-        row, col = img.shape
-        row/=2
-        col/=2
-        return np.concatenate(
-            (np.concatenate(
-                (img[int(row):, int(col):], img[int(row):, :int(col)]),
-                axis=1),
-             np.concatenate(
-                 (img[:int(row), int(col):], img[:int(row), :int(col)]),
-                 axis=1)),
-            axis=0)
+    # def __fft_shift__(self, img):
+    #     row, col = img.shape
+    #     row/=2
+    #     col/=2
+    #     return np.concatenate(
+    #         (np.concatenate(
+    #             (img[int(row):, int(col):], img[int(row):, :int(col)]),
+    #             axis=1),
+    #          np.concatenate(
+    #              (img[:int(row), int(col):], img[:int(row), :int(col)]),
+    #              axis=1)),
+    #         axis=0)
         
 
 
