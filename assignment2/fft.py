@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import os.path as osp
 import time
-from  tqdm import tqdm
+from tqdm import tqdm
 
 
 def parseInput():
@@ -242,7 +242,7 @@ class FFTransformer:
             raise NotImplemented
 
         plt.title(title)
-        plt.imshow(np.abs(self.idft_fast2d(fft_img.real)))
+        plt.imshow(np.abs(self.idft_fast2d(fft_img)))
         plt.savefig(save, bbox_inches='tight')
 
 
