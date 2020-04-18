@@ -242,7 +242,7 @@ class FFTransformer:
             raise NotImplemented
 
         plt.title(title)
-        plt.imshow(self.idft_fast2d(fft_img.real))
+        plt.imshow(np.abs(self.idft_fast2d(fft_img.real)))
         plt.savefig(save, bbox_inches='tight')
 
 
