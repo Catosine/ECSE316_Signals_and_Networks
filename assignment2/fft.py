@@ -28,8 +28,11 @@ def parseInput():
                         help="(optional) filename of the image we wish to take the DFT of.")
     parser.add_argument("--denoise_ratio", type=float, default=0.1, help="(optional) denoising ratio")
     parser.add_argument("--compress_ratio", type=float, default=0.9, help="(optional) compressing ratio")
-    parser.add_argument("--denoise_type", type=int, default=1, choices=[1, 2, 3, 4, 5], help='; '.join(denoise_helper.values()))
-    parser.add_argument("--denoise_cap", type=int, default=10000, help="(optiona) thresholding for denoise")
+    parser.add_argument("--denoise_type", type=int, default=2, choices=[1, 2, 3, 4, 5],
+                        help='; '.join(denoise_helper.values()))
+    parser.add_argument("--denoise_cap", type=float, default=0.5, help="(optiona) thresholding for denoise")
+    parser.add_argument("--compress_type", type=int, default=1, choices=[1, 2])
+    parser.add_argument("--compress_cap", type=float, default=0.1, help="(optiona) thresholding for compress")
     parser.add_argument("--debug", action="store_false", help="run under debug mode")
     return parser.parse_args()
 
@@ -44,6 +47,8 @@ class FFTransformer:
         self.debug = config.debug
         self.denosing_type = config.denoise_type
         self.denoise_cap = config.denoise_cap
+        self.compress_type = config.compress_type
+        self.compress_cap = config.compress_cap
         if not osp.exists(self.image_name):
             raise RuntimeError(
                 "INVALID image input: {}. Please type python fft.py -h for help.".format(self.image_name))
@@ -57,7 +62,7 @@ class FFTransformer:
         # display original image
         plt.title("original")
         plt.imshow(original_image)
-        plt.savefig("assignment2/pics/original_"+self.image_name, bbox_inches='tight')
+        plt.savefig("assignment2/pics/original_" + self.image_name, bbox_inches='tight')
         plt.close()
 
         if self.mode == 1:
@@ -66,35 +71,32 @@ class FFTransformer:
 
             plt.title('self.fft')
             plt.imshow(np.abs(fft_image), norm=LogNorm())
-            plt.savefig("assignment2/pics/self_fft_"+self.image_name, bbox_inches='tight')
+            plt.savefig("assignment2/pics/self_fft_" + self.image_name, bbox_inches='tight')
             plt.close()
 
             fft_image = np.fft.fft2(original_image)
             plt.title('np.fft')
             plt.imshow(np.abs(fft_image), norm=LogNorm())
-            plt.savefig("assignment2/pics/np_fft_"+self.image_name, bbox_inches='tight')
+            plt.savefig("assignment2/pics/np_fft_" + self.image_name, bbox_inches='tight')
 
         elif self.mode == 2:
             # mode 2
-            self.denoise(original_image, percentile=self.denosing_percentile, type=self.denosing_type, cap=self.denoise_cap)
+            self.denoise(original_image, percentile=self.denosing_percentile, type=self.denosing_type,
+                         cap=self.denoise_cap)
 
         elif self.mode == 3:
             # mode 3
-            compressed_img = self.compress(original_image, percentile=self.compressing_percentile)
-
-            plt.title('compressing: percentile = {}'.format(self.compressing_percentile))
-            plt.imshow(compressed_img.real)
-            plt.savefig("assignment2/pics/compressing_{}_".format(self.compressing_percentile)+self.image_name, bbox_inches='tight')
+            self.compress(original_image, percentile=self.compressing_percentile)
 
         else:
             # mode 4
-            e = 7 if self.debug else 14
-            trial = 2 if self.debug else 10
+            e = 10 if self.debug else 14
+            trial = 10 if self.debug else 10
             naive_time = list()
             fast_time = list()
 
-            for p in range(5,e):
-                size = 2**p
+            for p in range(5, e):
+                size = 2 ** p
                 print("##########################")
                 print("Test data size: ({}, {})".format(size, size))
                 print("##########################")
@@ -124,10 +126,10 @@ class FFTransformer:
             fast_time = np.array(fast_time)
 
             naive_mean = naive_time.mean(axis=1)
-            naive_std = naive_time.std(axis=1)
+            naive_std = naive_time.std(axis=1)*2
 
             fast_mean = fast_time.mean(axis=1)
-            fast_std = fast_time.std(axis=1)
+            fast_std = fast_time.std(axis=1)*2
 
             power = np.arange(5, e)
 
@@ -138,7 +140,8 @@ class FFTransformer:
             plt.xticks(power)
             plt.title("Runtime for navie FT against fast ft")
             plt.legend(loc='best')
-            plt.show()
+            plt.savefig("assignment2/pics/runtime.png", bbox_inches='tight')
+            plt.close()
 
     def compress(self, image, percentile=0.25, threshold=16):
 
@@ -154,15 +157,23 @@ class FFTransformer:
 
         # filtering
         row, col = fft_img.shape
+        # cap_n = fft_img.real.max() * cap
 
-        for r in range(row):
+        for r in tqdm(range(row)):
             for c in range(col):
-                if (r + c) > (row + col)*percentile:
-                    fft_img[r,c] = 0
+                #if np.random.random_sample() > cap:
+                #if -cap_n < fft_img[r, c] < cap_n:
+                if (r+c) > percentile*(row+col):
+                    fft_img[r, c] = 0
 
-        return self.idft_fast2d(fft_img.real)
+        name = "assignment2/pics/compressing_{}_".format(percentile) + self.image_name.split('.')[0] + ".csv"
+        np.savetxt(name, fft_img, delimiter=",")
 
-    def denoise(self, image, percentile=0.25, threshold=16, type=1, cap=10000):
+        #plt.title('compressing: percentile = {}'.format(percentile))
+        #plt.imshow(np.abs(self.idft_fast2d(fft_img)))
+        #plt.savefig("assignment2/pics/compressing_{}_".format(percentile) + self.image_name, bbox_inches='tight')
+
+    def denoise(self, image, percentile=0.25, threshold=16, type=1, cap=0.5):
 
         """
             Denoising API using FFT
@@ -180,63 +191,62 @@ class FFTransformer:
 
         percentile = 0.5 if percentile > 0.5 else percentile
         percentile = 0 if percentile < 0 else percentile
+        cap = 1 if cap > 1 else cap
+        cap = 0 if cap < 0 else cap
 
         if type == 1:
-            denoise_type = "remove_high_freq"
-            for r in tqdm(range(row)):
-                for c in range(col):
-                    if r < row*percentile or r > row*(1-percentile):
-                        fft_img[r, c] = 0
-                    if c < col*percentile or c > col*(1-percentile):
-                        fft_img[r, c] = 0
-            title = '{}: percentile = {}'.format(denoise_type, percentile)
-            save = "assignment2/pics/denoising_{}_{}_".format(denoise_type, percentile)+self.image_name
-
-        elif type == 2:
             denoise_type = "remove_low_freq"
             for r in tqdm(range(row)):
                 for c in range(col):
-                    if r > row*percentile and r < row*(1-percentile):
+                    if r < row * percentile or r > row * (1 - percentile):
                         fft_img[r, c] = 0
-                    if c > col*percentile and c < col*(1-percentile):
+                    if c < col * percentile or c > col * (1 - percentile):
                         fft_img[r, c] = 0
             title = '{}: percentile = {}'.format(denoise_type, percentile)
-            save = "assignment2/pics/denoising_{}_{}_".format(denoise_type, percentile)+self.image_name
+            save = "assignment2/pics/denoising_{}_{}_".format(denoise_type, percentile) + self.image_name
+
+        elif type == 2:
+            denoise_type = "remove_high_freq"
+            for r in tqdm(range(row)):
+                for c in range(col):
+                    if row * percentile < r < row * (1 - percentile):
+                        fft_img[r, c] = 0
+                    if col * percentile < c < col * (1 - percentile):
+                        fft_img[r, c] = 0
+            title = '{}: percentile = {}'.format(denoise_type, percentile)
+            save = "assignment2/pics/denoising_{}_{}_".format(denoise_type, percentile) + self.image_name
 
         elif type == 3:
             denoise_type = "threshold_everything"
+            cap_n = fft_img.real.max() * cap
             for r in tqdm(range(row)):
                 for c in range(col):
-                    fft_img[r, c] = fft_img[r, c] if fft_img[r, c] < cap else cap
-                    fft_img[r, c] = fft_img[r, c] if fft_img[r, c] > -cap else -cap
+                    fft_img[r, c] = fft_img[r, c] if fft_img[r, c] < cap_n else cap_n
+                    fft_img[r, c] = fft_img[r, c] if fft_img[r, c] > -cap_n else -cap_n
             title = '{}: cap = {}'.format(denoise_type, cap)
-            save = "assignment2/pics/denoising_{}_{}_".format(denoise_type, cap)+self.image_name
+            save = "assignment2/pics/denoising_{}_{}_".format(denoise_type, cap) + self.image_name
 
         elif type == 4:
-            denoise_type = "threshold_low_freq"
+            denoise_type = "threshold_high_freq"
+            cap_n = fft_img.real.max() * cap
             for r in tqdm(range(row)):
                 for c in range(col):
-                    if r > row*percentile and r < row*(1-percentile):
-                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] < cap else cap
-                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] > -cap else -cap
-                    if c > col*percentile and c < col*(1-percentile):
-                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] < cap else cap
-                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] > -cap else -cap
+                    if row * percentile < r < row * (1 - percentile) or col * percentile < c < col * (1 - percentile):
+                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] < cap_n else cap_n
+                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] > -cap_n else -cap_n
             title = '{}: percentile = {}, cap = {}'.format(denoise_type, percentile, cap)
-            save = "assignment2/pics/denoising_{}_{}_{}_".format(denoise_type, percentile, cap)+self.image_name
+            save = "assignment2/pics/denoising_{}_{}_{}_".format(denoise_type, percentile, cap) + self.image_name
 
         elif type == 5:
-            denoise_type = "threshold_high_freq"
+            denoise_type = "threshold_low_freq"
+            cap_n = fft_img.real.max() * (1 - cap)
             for r in tqdm(range(row)):
                 for c in range(col):
-                    if r < row*percentile or r > row*(1-percentile):
-                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] < cap else cap
-                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] > -cap else -cap
-                    if c < col*percentile or c > col*(1-percentile):
-                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] < cap else cap
-                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] > -cap else -cap
+                    if r < row * percentile or r > row * (1 - percentile) or c < col * percentile or c > col * (1 - percentile):
+                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] < cap_n else cap_n
+                        fft_img[r, c] = fft_img[r, c] if fft_img[r, c] > -cap_n else -cap_n
             title = '{}: percentile = {}, cap = {}'.format(denoise_type, percentile, cap)
-            save = "assignment2/pics/denoising_{}_{}_{}_".format(denoise_type, percentile, cap)+self.image_name
+            save = "assignment2/pics/denoising_{}_{}_{}_".format(denoise_type, percentile, cap) + self.image_name
 
         else:
             raise NotImplemented
@@ -244,7 +254,6 @@ class FFTransformer:
         plt.title(title)
         plt.imshow(np.abs(self.idft_fast2d(fft_img)))
         plt.savefig(save, bbox_inches='tight')
-
 
     def dft_naive1d(self, signal):
 
@@ -351,7 +360,8 @@ class FFTransformer:
 
         length = ft_signal.shape[0]
         return ft_signal.dot(
-            np.array([[np.exp(2j * np.pi * i * j / length) for i in range(length)] for j in range(length)])).astype(np.complex64)
+            np.array([[np.exp(2j * np.pi * i * j / length) for i in range(length)] for j in range(length)])).astype(
+            np.complex64)
 
     def idft_fast1d(self, ft_signal, threshold=16):
 
@@ -441,7 +451,7 @@ class FFTransformer:
             :param img: 2D numpy array
             :return: 2D numpy array w/ shape of power of 2
         """
-        r_row, r_col = np.power([2,2],np.ceil(np.log2(img.shape))).astype(int)
+        r_row, r_col = np.power([2, 2], np.ceil(np.log2(img.shape))).astype(int)
         return cv2.resize(img, (r_col, r_row), interpolation=cv2.INTER_CUBIC)
 
     # def __fft_shift__(self, img):
@@ -456,7 +466,6 @@ class FFTransformer:
     #              (img[:int(row), int(col):], img[:int(row), :int(col)]),
     #              axis=1)),
     #         axis=0)
-        
 
 
 if __name__ == '__main__':
