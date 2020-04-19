@@ -41,12 +41,12 @@ f_mean = [
 ]
 f_std = [
 0.00079226,
- 0.00091405 ,
+0.00091405 ,
 0.0008956  ,
 0.00060017 ,
 0.00126925 ,
 0.0036289,
- 0.01077943 ,
+0.01077943 ,
 0.00933547 ,
 0.14737561,
 0.52379514,
@@ -59,14 +59,18 @@ n_mean = np.array(n_mean)
 n_std = np.array(n_std)
 f_mean = np.array(f_mean)
 f_std = np.array(f_std)
-power = np.arange(1, 14)
-plt.errorbar(power, n_mean, yerr=n_std, label="naive")
-plt.errorbar(power, f_mean, yerr=f_std, label="fast")
+
+power1= np.arange(1, 14)
+power2= np.arange(1,7)
+
+plt.errorbar(power2, n_mean, yerr=n_std, label="naive")
+plt.errorbar(power1, f_mean, yerr=f_std, label="fast")
+
 plt.xlabel("size of test data (power of 2)")
 plt.ylabel("runtime (second)")
-plt.xticks(power)
+plt.xticks(power1)
 plt.title("Runtime for navie FT against fast ft")
 plt.legend(loc='best')
-plt.savefig("assignment2/pics/runtime.png", bbox_inches='tight')
+plt.savefig("runtime.png", bbox_inches='tight')
 plt.close()
 
