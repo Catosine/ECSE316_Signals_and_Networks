@@ -157,17 +157,19 @@ class FFTransformer:
 
         # filtering
         row, col = fft_img.shape
-        # cap_n = fft_img.real.max() * cap
+
+        counter = 0
 
         for r in tqdm(range(row)):
             for c in range(col):
-                #if np.random.random_sample() > cap:
-                #if -cap_n < fft_img[r, c] < cap_n:
                 if (r+c) > percentile*(row+col):
                     fft_img[r, c] = 0
+                    counter += 1
 
+        print("Compression Ratio: {} of original image is compressed".format(counter/(row*col)))
         name = "assignment2/pics/compressing_{}_".format(percentile) + self.image_name.split('.')[0] + ".csv"
         np.savetxt(name, fft_img, delimiter=",")
+        print("Spectrum saved at: {}".format(name))
 
         plt.title('compressing: percentile = {}'.format(percentile))
         plt.imshow(np.abs(self.idft_fast2d(fft_img)))
@@ -476,4 +478,3 @@ if __name__ == '__main__':
     except RuntimeError:
         raise
         exit(0)
-
